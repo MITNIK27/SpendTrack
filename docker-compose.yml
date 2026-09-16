@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: spend
+      POSTGRES_PASSWORD: spend
+      POSTGRES_DB: marketing_spend
+    # Host port 5434 — 5432 collides with a native Postgres service on this machine,
+    # and 5433 is already used by another project's container.
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # DB visibility — browse every table in a plain browser at http://localhost:8080
+  # (server: postgres, user: spend, password: spend, database: marketing_spend)
+  adminer:
+    image: adminer:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:

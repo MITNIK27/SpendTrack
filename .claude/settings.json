@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(lsof -ti:8000 -sTCP:LISTEN)",
+      "Bash(xargs -r kill)",
+      "Bash(lsof -ti:5176 -sTCP:LISTEN)",
+      "Bash(curl -s -o /dev/null -w \"backend now: %{http_code}\\\\n\" http://localhost:8000/api/categories)",
+      "Bash(curl -s -o /dev/null -w \"frontend\\(5176\\) now: %{http_code}\\\\n\" http://localhost:5176)"
+    ]
+  }
+}
