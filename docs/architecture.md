@@ -39,7 +39,7 @@ body field beyond the identity lookup itself. See `docs/data-model.md` for the f
 `docs/workflow.md`-equivalent status lifecycle.
 
 A draft `SpendRequest` is a private scratchpad: it's invisible to everyone but its own creator,
-regardless of role (an approver/admin gets a 404, not just an employee). This one rule is
+regardless of role (an approver/admin gets a 404, not just a member). This one rule is
 centralized in `app/services/spend_request_visibility.py` (`visible_spend_requests_clause` for
 queries, `is_spend_request_visible` for an already-loaded instance) and reused by the single-read,
 list, initiative-detail, search, and reporting code paths — it must never be reimplemented

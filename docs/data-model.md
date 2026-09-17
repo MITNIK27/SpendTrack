@@ -31,7 +31,7 @@ Category ──has many──▶ Subcategory ──referenced by──▶ SpendR
 | firebase_uid | VARCHAR, nullable, unique | Unused in V1 (dev-auth stub); populated once Firebase Auth is wired in (Phase 12) |
 | email | VARCHAR, unique, not null | Dev-auth stub's lookup key (`X-Dev-User-Email` header) |
 | display_name | VARCHAR | |
-| role | ENUM(`employee`,`approver`,`admin`) | Default `employee`. **App-managed only** — never trusted from a client claim |
+| role | ENUM(`member`,`approver`,`admin`) | Default `member`. **App-managed only** — never trusted from a client claim |
 | is_active | BOOLEAN | Default true |
 | created_at, updated_at | TIMESTAMPTZ | |
 

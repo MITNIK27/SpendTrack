@@ -15,7 +15,7 @@ import type { Initiative } from "@/types/domain"
 export default function MyInitiatives() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const canCreate = user?.role === "employee"
+  const canCreate = user?.role === "member"
   const { data: initiatives, isLoading, isError } = useInitiatives()
   const deleteInitiative = useDeleteInitiative()
   const [page, setPage] = useState(1)

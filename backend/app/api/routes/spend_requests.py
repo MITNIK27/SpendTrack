@@ -54,7 +54,7 @@ def list_spend_requests(
     user: User = Depends(get_current_user),
 ) -> list[SpendRequest]:
     stmt = select(SpendRequest).where(visible_spend_requests_clause(user))
-    if user.role != "employee" and created_by_id is not None:
+    if user.role != "member" and created_by_id is not None:
         stmt = stmt.where(SpendRequest.created_by_id == created_by_id)
     if initiative_id is not None:
         stmt = stmt.where(SpendRequest.initiative_id == initiative_id)

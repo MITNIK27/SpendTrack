@@ -13,7 +13,7 @@ def get_current_user(
 
     V1: looks up `users` by the `X-Dev-User-Email` header — no token verification.
     Phase 12 replaces the body of this function with Firebase ID token verification
-    (looking up by `firebase_uid`, auto-provisioning a new `employee` row on first
+    (looking up by `firebase_uid`, auto-provisioning a new `member` row on first
     real login). Every caller of this dependency stays unchanged.
     """
     if not x_dev_user_email:

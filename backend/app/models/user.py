@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
 
-USER_ROLES = ("employee", "approver", "admin")
+USER_ROLES = ("member", "approver", "admin")
 
 
 class User(Base):
@@ -19,7 +19,7 @@ class User(Base):
     # Dev-auth stub's lookup key (X-Dev-User-Email header).
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     display_name: Mapped[str] = mapped_column(String, nullable=False)
-    role: Mapped[str] = mapped_column(Enum(*USER_ROLES, name="user_role"), nullable=False, default="employee")
+    role: Mapped[str] = mapped_column(Enum(*USER_ROLES, name="user_role"), nullable=False, default="member")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

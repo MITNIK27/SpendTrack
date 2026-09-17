@@ -139,7 +139,7 @@ def list_initiatives(
     user: User = Depends(get_current_user),
 ) -> list[Initiative]:
     stmt = select(Initiative).where(visible_initiatives_clause(user))
-    if user.role != "employee" and owner_id is not None:
+    if user.role != "member" and owner_id is not None:
         stmt = stmt.where(Initiative.owner_id == owner_id)
     if status_filter is not None:
         stmt = stmt.where(Initiative.status == status_filter)

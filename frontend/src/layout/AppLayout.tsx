@@ -5,7 +5,7 @@ import { AppFooter } from "@/components/AppFooter"
 import { useAuth } from "@/auth/AuthContext"
 
 const roleLabel: Record<string, string> = {
-  employee: "Team Member",
+  member: "Team Member",
   approver: "Approver",
   admin: "Admin",
 }
@@ -19,8 +19,8 @@ export function AppLayout() {
 
   return (
     <div className="grid h-screen grid-cols-[248px_1fr] grid-rows-[60px_1fr] overflow-hidden bg-background">
-      <AppSidebar role={user?.role ?? "employee"} />
-      <Topbar displayName={user?.display_name ?? ""} roleLabel={roleLabel[user?.role ?? "employee"]} />
+      <AppSidebar role={user?.role ?? "member"} />
+      <Topbar displayName={user?.display_name ?? ""} roleLabel={roleLabel[user?.role ?? "member"]} />
       <div className="col-start-2 row-start-2 flex min-h-0 flex-col overflow-y-auto">
         <main className={isAbout ? "flex flex-1 flex-col" : "mx-auto w-full max-w-[1320px] flex-1 p-8"}>
           <Outlet />

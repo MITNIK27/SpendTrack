@@ -19,7 +19,7 @@ export default function InitiativeDetail() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const canDecide = user?.role === "approver" || user?.role === "admin"
-  const canAddSpend = user?.role === "employee"
+  const canAddSpend = user?.role === "member"
   const { data: initiative, isLoading, isError } = useInitiative(id)
   const submitInitiative = useSubmitInitiative(id)
   const submitSpendRequest = useSubmitSpendRequestById(id)
@@ -87,7 +87,7 @@ export default function InitiativeDetail() {
     <div className="mx-auto max-w-[960px]">
       <div className="mb-4 flex items-end justify-between">
         <div>
-          <BackButton to={user?.role === "employee" ? "/" : "/initiatives"} />
+          <BackButton to={user?.role === "member" ? "/" : "/initiatives"} />
           <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
             {initiative.type ?? "Marketing Initiative"}
           </div>

@@ -7,6 +7,17 @@ Internal portal for requesting and approving marketing expenditure. See `docs/ar
 
 ### 1. Database
 
+The project's primary Postgres is hosted on **Supabase** (shared across whoever works on this,
+easy to browse/monitor from the Supabase dashboard's Table Editor). Get the connection string
+from the Supabase project's **Settings → Database → Connection string**, mode **Session
+pooler** (port `5432`) — the plain "Direct connection" host only resolves over IPv6 unless
+you've paid for Supabase's IPv4 add-on, which fails on most networks; the Session pooler is
+IPv4-compatible and, unlike the Transaction pooler, works fine for Alembic's migrations too. Set
+it as `DATABASE_URL` in `backend/.env` (see `backend/.env.example` for the exact format).
+
+Prefer working fully offline, or want a disposable local sandbox instead? A local Postgres via
+Docker still works as a drop-in alternative — point `DATABASE_URL` at it instead:
+
 ```bash
 docker compose up -d      # Postgres on localhost:5434, Adminer on http://localhost:8080
 ```

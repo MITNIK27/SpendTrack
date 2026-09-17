@@ -6,7 +6,7 @@ export function landingPathForRole(role: UserRole): string {
     case "admin":
     case "approver":
       return "/dashboard"
-    case "employee":
+    case "member":
     default:
       return "/"
   }

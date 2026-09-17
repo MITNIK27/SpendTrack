@@ -3,11 +3,11 @@
 export interface DevUser {
   email: string
   displayName: string
-  role: "employee" | "approver" | "admin"
+  role: "member" | "approver" | "admin"
 }
 
 export const DEV_USERS: DevUser[] = [
   { email: "paarth.sahni@infobeans.com", displayName: "Paarth Sahni", role: "admin" },
   { email: "siddharth.sethi@infobeans.com", displayName: "Siddharth Sethi", role: "approver" },
-  { email: "test.@infobeans.com", displayName: "Test Team Member", role: "employee" },
+  { email: "test.@infobeans.com", displayName: "Test Team Member", role: "member" },
 ]

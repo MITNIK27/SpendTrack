@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 import { Toaster } from "@/components/ui/sonner"
 import { AuthProvider } from "@/auth/AuthContext"
-import { ProtectedRoute, EmployeeRoute, ApproverRoute, AdminRoute } from "@/routes/ProtectedRoute"
+import { ProtectedRoute, MemberRoute, ApproverRoute, AdminRoute } from "@/routes/ProtectedRoute"
 import { AppLayout } from "@/layout/AppLayout"
 import Login from "@/screens/Login"
 import MyInitiatives from "@/screens/MyInitiatives"
@@ -29,7 +29,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
-                <Route element={<EmployeeRoute />}>
+                <Route element={<MemberRoute />}>
                   <Route index element={<MyInitiatives />} />
                   <Route path="initiatives/new" element={<CreateInitiative />} />
                   <Route path="initiatives/:id/edit" element={<EditInitiative />} />

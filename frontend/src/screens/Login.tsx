@@ -7,7 +7,7 @@ import { DEV_USERS } from "@/auth/devUsers"
 import { landingPathForRole } from "@/auth/roleRouting"
 
 const roleLabel: Record<string, string> = {
-  employee: "Team Member",
+  member: "Team Member",
   approver: "Approver",
   admin: "Admin",
 }
@@ -16,7 +16,7 @@ export default function Login() {
   const { signIn } = useAuth()
   const navigate = useNavigate()
 
-  const pick = (email: string, role: "employee" | "approver" | "admin") => {
+  const pick = (email: string, role: "member" | "approver" | "admin") => {
     signIn(email)
     navigate(landingPathForRole(role), { replace: true })
   }

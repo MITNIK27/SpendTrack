@@ -10,7 +10,7 @@ from app.models.user import User
 DEV_USERS = [
     {"email": "paarth.sahni@infobeans.com", "display_name": "Paarth Sahni", "role": "admin"},
     {"email": "siddharth.sethi@infobeans.com", "display_name": "Siddharth Sethi", "role": "approver"},
-    {"email": "test.@infobeans.com", "display_name": "Test Team Member", "role": "employee"},
+    {"email": "test.@infobeans.com", "display_name": "Test Team Member", "role": "member"},
 ]
 
 

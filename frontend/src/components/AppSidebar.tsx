@@ -21,7 +21,7 @@ interface NavGroup {
 // view-only over initiatives — creating one stays a Team Member action, so
 // they get a read-only "Initiatives" link (browse-and-approve-from-inside)
 // instead of the Team Member "My Initiatives" one.
-function useNavGroups(role: "employee" | "approver" | "admin"): NavGroup[] {
+function useNavGroups(role: "member" | "approver" | "admin"): NavGroup[] {
   const myWork: NavGroup = {
     title: "",
     items: [{ to: "/", label: "My Initiatives", icon: FolderKanban, end: true }],
@@ -47,7 +47,7 @@ function useNavGroups(role: "employee" | "approver" | "admin"): NavGroup[] {
   return [myWork]
 }
 
-export function AppSidebar({ role = "employee" }: { role?: "employee" | "approver" | "admin" }) {
+export function AppSidebar({ role = "member" }: { role?: "member" | "approver" | "admin" }) {
   const groups = useNavGroups(role)
   const { signOut } = useAuth()
   const navigate = useNavigate()

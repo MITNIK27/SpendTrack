@@ -20,9 +20,9 @@ export function ProtectedRoute() {
 }
 
 /** Creating/owning initiatives stays a Team Member action — Approver/Admin are view-only. */
-export function EmployeeRoute() {
+export function MemberRoute() {
   const { user } = useAuth()
-  if (user && user.role !== "employee") return <Navigate to={landingPathForRole(user.role)} replace />
+  if (user && user.role !== "member") return <Navigate to={landingPathForRole(user.role)} replace />
   return <Outlet />
 }
 
