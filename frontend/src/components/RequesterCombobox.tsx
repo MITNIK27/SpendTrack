@@ -20,9 +20,9 @@ export function RequesterCombobox({ value, onChange }: Props) {
     const q = query.trim().toLowerCase()
     const candidates = users ?? []
     const matches = q
-      ? candidates.filter((u) => u.display_name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
+      ? candidates.filter((u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
       : candidates
-    return matches.map((u) => ({ id: u.id, label: u.display_name, sublabel: u.email }))
+    return matches.map((u) => ({ id: u.id, label: u.name, sublabel: u.email }))
   }, [users, query])
 
   return (
@@ -34,7 +34,7 @@ export function RequesterCombobox({ value, onChange }: Props) {
       query={query}
       onQueryChange={setQuery}
       placeholder="Type a name…"
-      selectedLabel={selected?.display_name}
+      selectedLabel={selected?.name}
       emptyMessage="No matching people."
     />
   )

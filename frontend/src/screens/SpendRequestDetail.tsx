@@ -143,7 +143,7 @@ export default function SpendRequestDetail() {
                   return (
                     <li key={entry.id} className="px-4 py-3 text-sm">
                       <span className="text-muted-foreground">{new Date(entry.created_at).toLocaleString()}</span>{" — "}
-                      <span className="font-medium">{entry.actor?.display_name ?? "System"}</span>{" "}
+                      <span className="font-medium">{entry.actor?.name ?? "System"}</span>{" "}
                       {actionLabel(entry.action)}
                       {typeof comment === "string" && comment && (
                         <p className="mt-1 text-muted-foreground">"{comment}"</p>

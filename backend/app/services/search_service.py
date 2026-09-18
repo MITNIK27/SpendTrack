@@ -40,7 +40,7 @@ def search(db: Session, *, query: str, user: User) -> SearchResponse:
                 SpendRequest.description.ilike(pattern),
                 SpendRequest.vendor.ilike(pattern),
                 Category.name.ilike(pattern),
-                User.display_name.ilike(pattern),
+                User.name.ilike(pattern),
             )
         )
         .order_by(SpendRequest.created_at.desc())

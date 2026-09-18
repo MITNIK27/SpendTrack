@@ -7,21 +7,23 @@
   for the full InfoBeans brand/component kit, which is mandatory for every screen.
 - **Backend:** Python + FastAPI, SQLAlchemy 2.x + Alembic, PostgreSQL 16. All money columns are
   `Numeric(14,2)`.
-- **Local dev infra:** `docker-compose.yml` runs Postgres (host port `5434` — `5432`/`5433` were
-  already taken on this machine by a native Postgres service and another project's container) and
-  **Adminer** (`localhost:8080`) so the database is directly browsable while building.
+- **Database hosting:** primarily a **Supabase** Postgres project (Session pooler connection —
+  see `backend/.env.example`), with local Docker Postgres (`docker-compose.yml`, host port `5434`,
+  **Adminer** at `localhost:8080`) kept as a fully-offline alternative for local dev.
+
+## Authentication — Google Sign-In via Firebase (done)
+
+Production auth is **Firebase Authentication**, Google Sign-In restricted to `@infobeans.com`.
+See `docs/auth.md` for the full flow, RBAC model, and how to make someone an Approver. In short:
+the frontend gets a Firebase ID token via the Google sign-in popup, exchanges it for the app's own
+short-lived JWT at `POST /api/auth/google`, and every subsequent request carries that JWT as
+`Authorization: Bearer`. `app/api/deps.py::get_current_user` / `app/core/security.py` are what
+changed from the earlier dev-auth stub — no other route code needed to change.
 
 ## Deferred integrations (explicit, temporary — see Phase 12 of the plan)
 
-Two pieces of "real" infra are intentionally stubbed for V1 so architecture and the domain model
-can be built and demoed first:
+One piece of "real" infra is still intentionally stubbed for V1:
 
-- **Auth:** production auth will be Firebase Authentication (Google Sign-In restricted to
-  `@infobeans.com` + Email/Password for test accounts), with the backend verifying Firebase ID
-  tokens via the Admin SDK. Until then, every request carries a plain `X-Dev-User-Email` header,
-  and `app/api/deps.py::get_current_user` looks it up directly in the `users` table. This is the
-  **only** function that changes when Firebase is wired in — no other code, no schema change
-  (`users.firebase_uid` already exists, nullable, unused until then).
 - **File storage:** production storage will be Firebase Storage, uploaded via a backend-mediated
   multipart endpoint. Until then, `app/storage/local_disk.py` implements the same
   `StorageBackend` interface (`app/storage/base.py`) by writing to `backend/uploads/`. Swapping in

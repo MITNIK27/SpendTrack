@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db, require_role
 from app.api.routes.initiatives import _get_owned_or_visible
 from app.models.initiative import Initiative
 from app.models.spend_request import SpendRequest
@@ -110,7 +110,7 @@ def submit_spend_request(
 def approve_batch(
     payload: ApproveBatchInput,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role("approver", "admin")),
 ) -> list[SpendRequest]:
     """Approves a hand-picked set of pending spend requests in one go, each
     with its own optional remark — the everyday decision flow now: select
@@ -118,8 +118,6 @@ def approve_batch(
     here (or no longer pending by the time this runs) is silently skipped
     rather than erroring the whole batch — a stale/already-decided id is not
     the caller's fault to fix before retrying."""
-    if user.role not in ("approver", "admin"):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only Siddharth/Admin can approve spend requests.")
     approved: list[SpendRequest] = []
     for item in payload.decisions:
         spend_request = db.get(SpendRequest, item.spend_request_id)
@@ -149,10 +147,8 @@ def decide_spend_request(
     spend_request_id: uuid.UUID,
     payload: ApprovalDecisionInput,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role("approver", "admin")),
 ) -> SpendRequest:
-    if user.role not in ("approver", "admin"):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only Siddharth/Admin can decide on a spend request.")
     spend_request = _get_spend_request_or_404(db, spend_request_id, user)
     approval_service.decide(
         db,

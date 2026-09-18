@@ -9,6 +9,12 @@ class Settings(BaseSettings):
     env: str = "local"
     uploads_dir: str = "./uploads"
 
+    firebase_project_id: str = ""
+    google_application_credentials: str = "./firebase-service-account.json"
+    google_allowed_domain: str = "infobeans.com"
+    jwt_secret: str = ""
+    jwt_expires_minutes: int = 60
+
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_allowed_origins.split(",") if origin.strip()]

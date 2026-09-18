@@ -1,13 +1,13 @@
 import { Navigate, Outlet } from "react-router-dom"
 import { useAuth } from "@/auth/AuthContext"
-import { hasDevUserSelected } from "@/auth/AuthContext"
 import { landingPathForRole } from "@/auth/roleRouting"
 
 export function ProtectedRoute() {
-  const { isLoading, isError, user } = useAuth()
+  const { authReady, isLoading, isError, user } = useAuth()
 
-  if (!hasDevUserSelected()) return <Navigate to="/login" replace />
-  if (isLoading) {
+  // Firebase's initial auth-state check (restoring a persisted session on page
+  // load) is async — wait for it before deciding, instead of flashing /login.
+  if (!authReady || isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
         Loading…

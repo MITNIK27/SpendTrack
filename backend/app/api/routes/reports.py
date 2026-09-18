@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_db, require_role
 from app.models.user import User
 from app.schemas.alert import AlertItem
 from app.schemas.report import SpendRequestReportRow, SpendSummaryResponse, SpendTrendsResponse
@@ -13,17 +13,11 @@ from app.services.report_service import ReportFilters
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
-def _require_leadership(user: User) -> None:
-    if user.role not in ("approver", "admin"):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only Siddharth/Admin can view leadership reports.")
-
-
 @router.get("/alerts", response_model=list[AlertItem])
 def alerts(
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role("approver", "admin")),
 ) -> list[AlertItem]:
-    _require_leadership(user)
     return alert_service.list_alerts(db)
 
 
@@ -31,9 +25,8 @@ def alerts(
 def spend_summary(
     filters: ReportFilters = Depends(),
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role("approver", "admin")),
 ) -> SpendSummaryResponse:
-    _require_leadership(user)
     return report_service.spend_summary(db, filters)
 
 
@@ -41,9 +34,8 @@ def spend_summary(
 def export_spend_summary_csv(
     filters: ReportFilters = Depends(),
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role("approver", "admin")),
 ) -> StreamingResponse:
-    _require_leadership(user)
     summary = report_service.spend_summary(db, filters)
     period = f"fy{summary.fiscal_year}" if summary.fiscal_year is not None else "all-time"
     return csv_response(
@@ -60,11 +52,10 @@ def export_spend_summary_csv(
 def spend_trends(
     filters: ReportFilters = Depends(),
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role("approver", "admin")),
 ) -> SpendTrendsResponse:
     """Feeds the leadership dashboard's charts: monthly trend, quarterly bar,
     and average monthly spend by category."""
-    _require_leadership(user)
     return report_service.spend_trends(db, filters)
 
 
@@ -72,12 +63,11 @@ def spend_trends(
 def spend_requests(
     filters: ReportFilters = Depends(),
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role("approver", "admin")),
 ) -> list[SpendRequestReportRow]:
     """The drill-down behind a KPI tile or category row: the individual spend
     requests that make up the matched total, each with its latest decision
     (who, how much, and their comment) — not just the aggregate number."""
-    _require_leadership(user)
     return report_service.spend_request_rows(db, filters)
 
 
@@ -85,9 +75,8 @@ def spend_requests(
 def export_spend_requests_csv(
     filters: ReportFilters = Depends(),
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role("approver", "admin")),
 ) -> StreamingResponse:
-    _require_leadership(user)
     rows = report_service.spend_request_rows(db, filters)
     return csv_response(
         filename="spend-requests.csv",

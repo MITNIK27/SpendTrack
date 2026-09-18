@@ -8,9 +8,9 @@ from app.core.db import SessionLocal
 from app.models.user import User
 
 DEV_USERS = [
-    {"email": "paarth.sahni@infobeans.com", "display_name": "Paarth Sahni", "role": "admin"},
-    {"email": "siddharth.sethi@infobeans.com", "display_name": "Siddharth Sethi", "role": "approver"},
-    {"email": "test.@infobeans.com", "display_name": "Test Team Member", "role": "member"},
+    {"email": "paarthp.sahni@infobeans.com", "name": "Paarth Sahni", "role": "admin"},
+    {"email": "siddharth.sethi@infobeans.com", "name": "Siddharth Sethi", "role": "approver"},
+    {"email": "test.@infobeans.com", "name": "Test Team Member", "role": "member"},
 ]
 
 
@@ -23,7 +23,7 @@ def run() -> None:
                 db.add(User(**spec))
                 print(f"created {spec['email']} ({spec['role']})")
             else:
-                user.display_name = spec["display_name"]
+                user.name = spec["name"]
                 user.role = spec["role"]
                 print(f"updated {spec['email']} ({spec['role']})")
         db.commit()

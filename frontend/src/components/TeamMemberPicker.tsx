@@ -49,7 +49,7 @@ export function TeamMemberPicker({ value, onChange, excludeUserId }: Props) {
           >
             <Checkbox checked={checked} className="pointer-events-none" tabIndex={-1} />
             <span className="text-sm">
-              {u.display_name} <span className="text-muted-foreground">({u.email})</span>
+              {u.name} <span className="text-muted-foreground">({u.email})</span>
             </span>
           </div>
         )
@@ -58,13 +58,13 @@ export function TeamMemberPicker({ value, onChange, excludeUserId }: Props) {
   )
 }
 
-export function TeamMemberChips({ members }: { members: { id: string; display_name: string }[] }) {
+export function TeamMemberChips({ members }: { members: { id: string; name: string }[] }) {
   if (members.length === 0) return null
   return (
     <div className="flex flex-wrap gap-2">
       {members.map((m) => (
         <span key={m.id} className="border border-border bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground">
-          {m.display_name}
+          {m.name}
         </span>
       ))}
     </div>

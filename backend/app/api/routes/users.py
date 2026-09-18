@@ -18,5 +18,5 @@ def list_users(
     can fetch it (e.g. to pick team members on an initiative or spend request).
     Role management (assigning Member/Approver/Admin) is a separate, Admin-only
     concern that lands with the Admin category-management screen."""
-    stmt = select(User).where(User.is_active).order_by(User.display_name)
+    stmt = select(User).where(User.is_active).order_by(User.name)
     return list(db.scalars(stmt).all())

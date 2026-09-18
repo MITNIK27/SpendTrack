@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { api, getDevUserEmail } from "@/api/client"
+import { api } from "@/api/client"
+import { getToken } from "@/auth/tokenStore"
 import type {
   ActivityLogEntry,
   AlertItem,
@@ -18,9 +19,9 @@ import type {
 
 export function useCurrentUser() {
   return useQuery<UserRead>({
-    queryKey: ["me", getDevUserEmail()],
+    queryKey: ["me"],
     queryFn: () => api.get<UserRead>("/me"),
-    enabled: !!getDevUserEmail(),
+    enabled: !!getToken(),
     retry: false,
   })
 }
@@ -31,6 +32,28 @@ export function useCategories() {
 
 export function useUsers() {
   return useQuery<UserRead[]>({ queryKey: ["users"], queryFn: () => api.get<UserRead[]>("/users") })
+}
+
+/** Admin-only: every user including inactive ones, for the Admin > Users screen. */
+export function useAdminUsers() {
+  return useQuery<UserRead[]>({ queryKey: ["admin", "users"], queryFn: () => api.get<UserRead[]>("/admin/users") })
+}
+
+export interface UserUpdateInput {
+  role?: string
+  is_active?: boolean
+}
+
+export function useUpdateUser() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UserUpdateInput }) =>
+      api.patch<UserRead>(`/admin/users/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "users"] })
+      qc.invalidateQueries({ queryKey: ["users"] })
+    },
+  })
 }
 
 export function useInitiatives() {

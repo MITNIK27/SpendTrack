@@ -1,18 +1,20 @@
-from collections.abc import Generator
-
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
-from app.core.security import get_current_user as _resolve_dev_user
+from app.core.security import get_current_user as _resolve_user
 from app.models.user import User
+
+_bearer = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
-    x_dev_user_email: str | None = Header(default=None, alias="X-Dev-User-Email"),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     db: Session = Depends(get_db),
 ) -> User:
-    return _resolve_dev_user(db, x_dev_user_email)
+    token = credentials.credentials if credentials else None
+    return _resolve_user(db, token)
 
 
 def require_role(*roles: str):

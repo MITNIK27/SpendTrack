@@ -14,6 +14,7 @@ import SpendRequestDetail from "@/screens/SpendRequestDetail"
 import Dashboard from "@/screens/Dashboard"
 import ApprovalsDashboard from "@/screens/ApprovalsDashboard"
 import AdminConsole from "@/screens/AdminConsole"
+import UserManagement from "@/screens/UserManagement"
 import About from "@/screens/About"
 
 const queryClient = new QueryClient({
@@ -46,6 +47,7 @@ function App() {
                 </Route>
                 <Route element={<AdminRoute />}>
                   <Route path="admin" element={<AdminConsole />} />
+                  <Route path="user-management" element={<UserManagement />} />
                 </Route>
               </Route>
             </Route>

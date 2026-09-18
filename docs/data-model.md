@@ -28,11 +28,12 @@ Category ──has many──▶ Subcategory ──referenced by──▶ SpendR
 | Column | Type | Notes |
 |---|---|---|
 | id | UUID PK | |
-| firebase_uid | VARCHAR, nullable, unique | Unused in V1 (dev-auth stub); populated once Firebase Auth is wired in (Phase 12) |
-| email | VARCHAR, unique, not null | Dev-auth stub's lookup key (`X-Dev-User-Email` header) |
-| display_name | VARCHAR | |
+| firebase_uid | VARCHAR, nullable, unique | Google's stable subject identifier (Firebase ID token's `sub` claim) |
+| email | VARCHAR, unique, not null | |
+| name | VARCHAR | Synced from the Google account's `name` claim on every login |
 | role | ENUM(`member`,`approver`,`admin`) | Default `member`. **App-managed only** — never trusted from a client claim |
 | is_active | BOOLEAN | Default true |
+| last_login_at | TIMESTAMPTZ, nullable | Set on every successful Google sign-in |
 | created_at, updated_at | TIMESTAMPTZ | |
 
 ### `categories`

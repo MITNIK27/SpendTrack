@@ -3,7 +3,7 @@ export type UserRole = "member" | "approver" | "admin"
 export interface UserRead {
   id: string
   email: string
-  display_name: string
+  name: string
   role: UserRole
   is_active: boolean
 }

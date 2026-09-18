@@ -1,7 +1,7 @@
-import { NavLink, useNavigate } from "react-router-dom"
-import { LayoutDashboard, ClipboardCheck, ShieldCheck, FolderKanban } from "lucide-react"
-import { Logo } from "@/components/Logo"
-import { useAuth } from "@/auth/AuthContext"
+import { Link, NavLink } from "react-router-dom"
+import { LayoutDashboard, ClipboardCheck, ShieldCheck, FolderKanban, Users } from "lucide-react"
+import { BrandLockup } from "@/components/BrandLockup"
+import { landingPathForRole } from "@/auth/roleRouting"
 import { cn } from "@/lib/utils"
 
 interface NavItem {
@@ -39,7 +39,10 @@ function useNavGroups(role: "member" | "approver" | "admin"): NavGroup[] {
   }
   const admin: NavGroup = {
     title: "Admin",
-    items: [{ to: "/admin", label: "Admin Console", icon: ShieldCheck }],
+    items: [
+      { to: "/admin", label: "Admin Console", icon: ShieldCheck },
+      { to: "/user-management", label: "User Management", icon: Users },
+    ],
   }
 
   if (role === "approver") return [overview, approvals]
@@ -49,25 +52,23 @@ function useNavGroups(role: "member" | "approver" | "admin"): NavGroup[] {
 
 export function AppSidebar({ role = "member" }: { role?: "member" | "approver" | "admin" }) {
   const groups = useNavGroups(role)
-  const { signOut } = useAuth()
-  const navigate = useNavigate()
-
-  const switchAccount = () => {
-    signOut()
-    navigate("/login")
-  }
 
   return (
-    <aside className="row-span-2 w-62 bg-sidebar text-sidebar-foreground flex flex-col">
-      <button
-        onClick={switchAccount}
-        aria-label="Switch account — sign out and return to sign-in"
-        title="Switch account"
-        className="flex flex-col items-start gap-0.5 px-6 py-4 text-left transition-colors hover:bg-white/6"
+    <aside className="row-span-2 w-62 bg-gradient-to-b from-sidebar to-sidebar-accent text-sidebar-foreground flex flex-col">
+      <Link
+        to={landingPathForRole(role)}
+        aria-label="Go to your home page"
+        className="group relative flex items-center overflow-hidden border-b border-white/10 px-4 py-4"
       >
-        <Logo on="dark" className="h-8" />
-        <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-white/45">Switch account</span>
-      </button>
+        {/* Same smoldering charcoal-to-black + crimson-glow treatment as the
+            About page hero, scaled down — one consistent brand effect. */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-sidebar via-sidebar to-black" />
+        <div className="pointer-events-none absolute -top-10 -left-6 size-32 rounded-full bg-primary/25 blur-[60px]" />
+        <div className="pointer-events-none absolute inset-0 bg-white/0 transition-colors group-hover:bg-white/6" />
+        <div className="relative">
+          <BrandLockup on="dark" />
+        </div>
+      </Link>
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {groups.map((g) => (
           <div key={g.title || g.items[0]?.to} className="mb-6">

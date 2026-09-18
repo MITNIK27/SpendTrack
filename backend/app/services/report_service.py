@@ -111,14 +111,14 @@ def spend_request_rows(db: Session, filters: ReportFilters) -> list[SpendRequest
                 initiative_id=sr.initiative_id,
                 initiative_name=sr.initiative.name,
                 category_name=sr.category.name,
-                requester_name=sr.created_by.display_name,
+                requester_name=sr.created_by.name,
                 vendor=sr.vendor,
                 requested_amount=sr.requested_amount,
                 approved_amount=sr.approved_amount,
                 actual_amount=sr.actual_amount,
                 status=sr.status,
                 decided_at=sr.decided_at,
-                decided_by=latest_action.approver.display_name if latest_action else None,
+                decided_by=latest_action.approver.name if latest_action else None,
                 decision_comment=latest_action.comment if latest_action else None,
             )
         )

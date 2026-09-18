@@ -8,6 +8,6 @@ class UserRead(BaseModel):
 
     id: uuid.UUID
     email: str
-    display_name: str
+    name: str
     role: str
     is_active: bool

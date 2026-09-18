@@ -1,23 +1,6 @@
+import { getToken, setToken } from "@/auth/tokenStore"
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8005/api"
-
-const DEV_USER_STORAGE_KEY = "marketing-spend-portal:dev-user-email"
-
-export function getDevUserEmail(): string | null {
-  try {
-    return localStorage.getItem(DEV_USER_STORAGE_KEY)
-  } catch {
-    return null
-  }
-}
-
-export function setDevUserEmail(email: string | null): void {
-  try {
-    if (email) localStorage.setItem(DEV_USER_STORAGE_KEY, email)
-    else localStorage.removeItem(DEV_USER_STORAGE_KEY)
-  } catch {
-    // localStorage unavailable — dev picker will just re-prompt each load.
-  }
-}
 
 export class ApiError extends Error {
   status: number
@@ -29,13 +12,18 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const email = getDevUserEmail()
+  const token = getToken()
   const headers: Record<string, string> = { "Content-Type": "application/json", ...(init?.headers as Record<string, string>) }
-  if (email) headers["X-Dev-User-Email"] = email
+  if (token) headers["Authorization"] = `Bearer ${token}`
 
   const res = await fetch(`${API_BASE_URL}${path}`, { ...init, headers })
 
   if (!res.ok) {
+    // Session expired, revoked, or the account was deactivated mid-session — drop the
+    // stale token so ProtectedRoute sends the user back to /login instead of retrying
+    // forever with a token the backend will never accept again.
+    if (res.status === 401) setToken(null)
+
     let detail = res.statusText
     try {
       const body = await res.json()
@@ -60,16 +48,18 @@ export const api = {
 }
 
 /** Downloads a file from an authenticated GET endpoint (e.g. a CSV export) — a plain
- * <a href> can't carry the dev-auth header, so this fetches the blob and triggers the
- * browser's save dialog itself. `filename` is a fallback; the server's own
+ * <a href> can't carry the Authorization header, so this fetches the blob and triggers
+ * the browser's save dialog itself. `filename` is a fallback; the server's own
  * Content-Disposition filename (if present) wins. */
 export async function downloadFile(path: string, filename: string): Promise<void> {
-  const email = getDevUserEmail()
+  const token = getToken()
   const headers: Record<string, string> = {}
-  if (email) headers["X-Dev-User-Email"] = email
+  if (token) headers["Authorization"] = `Bearer ${token}`
 
   const res = await fetch(`${API_BASE_URL}${path}`, { headers })
   if (!res.ok) {
+    if (res.status === 401) setToken(null)
+
     let detail = res.statusText
     try {
       const body = await res.json()
