@@ -1,6 +1,7 @@
 import { useMemo } from "react"
 import { ClipboardCheck } from "lucide-react"
 import { ApprovalChecklist } from "@/components/ApprovalChecklist"
+import { isInitiativeBudgetPending, PendingInitiativeBudgetRow } from "@/components/InitiativeBudgetDecision"
 import { useInitiatives, useSpendRequests } from "@/api/queries"
 import { PENDING_DECISION_STATUSES } from "@/types/domain"
 
@@ -16,6 +17,13 @@ export default function ApprovalsDashboard() {
     () => (spendRequests ?? []).filter((sr) => PENDING_DECISION_STATUSES.includes(sr.status)),
     [spendRequests],
   )
+
+  const pendingBudgets = useMemo(
+    () => (initiatives ?? []).filter(isInitiativeBudgetPending),
+    [initiatives],
+  )
+
+  const nothingPending = pending.length === 0 && pendingBudgets.length === 0
 
   return (
     <div>
@@ -41,7 +49,7 @@ export default function ApprovalsDashboard() {
         </div>
       )}
 
-      {!isLoading && !isError && pending.length === 0 && (
+      {!isLoading && !isError && nothingPending && (
         <div className="flex flex-col items-center gap-3 border border-border bg-card px-6 py-16 text-center">
           <div className="grid size-12 place-items-center bg-secondary">
             <ClipboardCheck className="size-6 text-warning" />
@@ -51,6 +59,21 @@ export default function ApprovalsDashboard() {
             <p className="text-sm text-muted-foreground">
               No marketing spend requests need your approval right now.
             </p>
+          </div>
+        </div>
+      )}
+
+      {!isLoading && !isError && pendingBudgets.length > 0 && (
+        <div className="mb-6">
+          <h2 className="mb-2 text-lg font-bold">Initiative Budgets Awaiting Approval</h2>
+          <p className="mb-2 text-xs text-muted-foreground">
+            These initiatives have no spend breakdown of their own — their whole requested budget is what's being
+            decided.
+          </p>
+          <div className="border border-border bg-card">
+            {pendingBudgets.map((initiative) => (
+              <PendingInitiativeBudgetRow key={initiative.id} initiative={initiative} />
+            ))}
           </div>
         </div>
       )}

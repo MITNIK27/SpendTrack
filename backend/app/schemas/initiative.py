@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.category import CategoryRead
 from app.schemas.spend_request import SpendRequestRead
 from app.schemas.user import UserRead
 
@@ -11,6 +12,7 @@ from app.schemas.user import UserRead
 class InitiativeCreate(BaseModel):
     name: str = Field(min_length=1)
     type: str | None = None
+    category_id: uuid.UUID | None = None
     event_date: date | None = None
     location: str | None = None
     currency: str = "INR"
@@ -25,6 +27,7 @@ class InitiativeCreate(BaseModel):
 class InitiativeUpdate(BaseModel):
     name: str | None = None
     type: str | None = None
+    category_id: uuid.UUID | None = None
     event_date: date | None = None
     location: str | None = None
     currency: str | None = None
@@ -47,12 +50,21 @@ class InitiativeSubmitInput(BaseModel):
     spend_request_ids: list[uuid.UUID] = []
 
 
+class InitiativeBudgetDecisionInput(BaseModel):
+    # Only ever applies to an initiative with zero spend-breakdown rows —
+    # one with a real breakdown is decided per-line instead. Comment is
+    # optional either way (unlike a SpendRequest reject, which requires one).
+    action: str
+    comment: str | None = None
+
+
 class InitiativeRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     name: str
     type: str | None
+    category: CategoryRead | None = None
     owner: UserRead
     event_date: date | None
     location: str | None
@@ -64,6 +76,14 @@ class InitiativeRead(BaseModel):
     objective: str | None
     estimated_total_budget: Decimal | None
     expected_leads_meetings: str | None
+
+    budget_decision: str | None
+    budget_approved_amount: Decimal | None
+    budget_decided_at: datetime | None
+    budget_decision_comment: str | None
+    spend_request_count: int
+    total_requested_amount: Decimal | None
+    total_approved_amount: Decimal
 
     created_at: datetime
 

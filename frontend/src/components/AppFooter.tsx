@@ -4,14 +4,13 @@ import { cn } from "@/lib/utils"
 export function AppFooter({ className }: { className?: string }) {
   return (
     <footer className={cn(
-      "flex flex-wrap items-center justify-between gap-2 border-t border-border px-8 py-4 text-xs text-muted-foreground",
+      "flex flex-col items-center gap-1.5 border-t border-border px-4 py-4 text-center text-xs text-muted-foreground sm:flex-row sm:justify-between sm:gap-2 sm:px-8 sm:text-left",
       className,
     )}>
       <span>
-        Copyright © {COPYRIGHT_YEAR}{" "}
-        <span className="font-medium text-foreground">{COPYRIGHT_OWNER}</span>. All rights reserved.
+        © {COPYRIGHT_YEAR} <span className="font-medium text-foreground">{COPYRIGHT_OWNER}</span>. All rights reserved.
       </span>
-      <span>Version {APP_VERSION}</span>
+      <span className="text-muted-foreground/80">Version {APP_VERSION}</span>
     </footer>
   )
 }

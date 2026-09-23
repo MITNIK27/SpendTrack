@@ -2,7 +2,11 @@
 backend/.venv/
 backend/__pycache__/
 backend/**/__pycache__/
-backend/.env
+# Every .env variant (.env, .env.production, .env.local, ...) except the
+# checked-in template — real secrets (DB connection string, JWT secret) must
+# never be committable under any of these names.
+backend/.env*
+!backend/.env.example
 backend/uploads/*
 !backend/uploads/.gitkeep
 backend/.pytest_cache/
@@ -13,7 +17,11 @@ backend/backup_*.sql
 # Frontend
 frontend/node_modules/
 frontend/dist/
-frontend/.env
+# VITE_* values are public/baked into the client bundle, not secrets, but
+# keep the same blanket-except-example pattern as the backend for consistency
+# and so a stray frontend/.env.local never surprises anyone.
+frontend/.env*
+!frontend/.env.example
 
 # Claude Code local session state (not shared project config)
 .claude/*.lock
@@ -21,3 +29,8 @@ frontend/.env
 # General
 .DS_Store
 *.log
+
+# Deployment packaging artifacts (produced on demand, not source)
+/backend-deploy/
+/backend-deploy.zip
+/frontend-dist.zip

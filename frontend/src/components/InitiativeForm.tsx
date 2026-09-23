@@ -68,9 +68,15 @@ export function InitiativeForm({ initial, submitLabel, pendingLabel, onSubmit, o
       setError("Budget amount is required.")
       return null
     }
+    // "Type" is already picked from the same A-Q spend-category taxonomy
+    // (`sortedTypes` above comes straight from `useCategories()`) — carry the
+    // matching category's id along too, so reporting can bucket an
+    // initiative's own budget by category when it has no spend breakdown.
+    const category = categories?.find((c) => c.name === type)
     return {
       name,
       type,
+      category_id: category?.id ?? null,
       currency,
       objective: remarks || null,
       estimated_total_budget: Number(estimatedTotalBudget),
@@ -108,7 +114,7 @@ export function InitiativeForm({ initial, submitLabel, pendingLabel, onSubmit, o
               <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Gartner Conference 2026" />
             </div>
 
-            <div className="grid grid-cols-[1fr_1fr_auto] gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_1fr_auto]">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="type">Initiative Type *</Label>
                 <Select value={type} onValueChange={setType}>
@@ -136,7 +142,7 @@ export function InitiativeForm({ initial, submitLabel, pendingLabel, onSubmit, o
               <div className="flex flex-col gap-2">
                 <Label htmlFor="currency">Currency</Label>
                 <Select value={currency} onValueChange={(v) => setCurrency(v as Currency)}>
-                  <SelectTrigger id="currency" className="w-28">
+                  <SelectTrigger id="currency" className="w-full md:w-28">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -178,7 +184,7 @@ export function InitiativeForm({ initial, submitLabel, pendingLabel, onSubmit, o
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Button type="submit" variant={secondaryAction ? "outline" : "default"} disabled={isPending}>
               {pendingAction === "primary" ? pendingLabel : submitLabel}
             </Button>

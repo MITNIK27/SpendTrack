@@ -1,7 +1,7 @@
 import * as React from "react"
 import { cn } from "cn"
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+function Input({ className, type, ref: externalRef, ...props }: React.ComponentProps<"input">) {
   const ref = React.useRef<HTMLInputElement>(null)
 
   React.useEffect(() => {
@@ -20,7 +20,11 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
 
   return (
     <input
-      ref={ref}
+      ref={(node) => {
+        ref.current = node
+        if (typeof externalRef === "function") externalRef(node)
+        else if (externalRef) externalRef.current = node
+      }}
       type={type}
       data-slot="input"
       className={cn(

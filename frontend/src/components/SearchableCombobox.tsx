@@ -57,14 +57,23 @@ export function SearchableCombobox({
     if (!open) return
     const updateRect = () => {
       const r = wrapRef.current?.getBoundingClientRect()
-      if (r) setRect({ top: r.bottom, left: r.left, width: r.width })
+      if (!r) return
+      // Never let the dropdown be narrower than ~14rem, but on a narrow phone
+      // screen never let that minimum push it past the viewport's right edge
+      // either — a `position: fixed` portal isn't clipped by any ancestor, so
+      // an unclamped width/left would visibly hang off-screen.
+      const width = Math.max(r.width, Math.min(224, window.innerWidth - 32))
+      const left = Math.min(r.left, window.innerWidth - width - 8)
+      setRect({ top: r.bottom, left: Math.max(left, 8), width })
     }
     updateRect()
     window.addEventListener("scroll", updateRect, true)
     window.addEventListener("resize", updateRect)
+    window.visualViewport?.addEventListener("resize", updateRect)
     return () => {
       window.removeEventListener("scroll", updateRect, true)
       window.removeEventListener("resize", updateRect)
+      window.visualViewport?.removeEventListener("resize", updateRect)
     }
   }, [open])
 
@@ -122,7 +131,7 @@ export function SearchableCombobox({
           <div
             ref={dropdownRef}
             style={{ position: "fixed", top: rect.top, left: rect.left, width: rect.width }}
-            className="z-50 mt-1 max-h-64 min-w-56 overflow-y-auto border border-border bg-card shadow-md"
+            className="z-50 mt-1 max-h-64 overflow-y-auto border border-border bg-card shadow-md"
           >
             {isLoading && <p className="px-3 py-2 text-sm text-muted-foreground">Loading…</p>}
             {!isLoading && options.length === 0 && (

@@ -50,14 +50,23 @@ function useNavGroups(role: "member" | "approver" | "admin"): NavGroup[] {
   return [myWork]
 }
 
-export function AppSidebar({ role = "member" }: { role?: "member" | "approver" | "admin" }) {
+export function AppSidebar({
+  role = "member",
+  onNavigate,
+  className,
+}: {
+  role?: "member" | "approver" | "admin"
+  onNavigate?: () => void
+  className?: string
+}) {
   const groups = useNavGroups(role)
 
   return (
-    <aside className="row-span-2 w-62 bg-gradient-to-b from-sidebar to-sidebar-accent text-sidebar-foreground flex flex-col">
+    <aside className={cn("bg-gradient-to-b from-sidebar to-sidebar-accent text-sidebar-foreground flex flex-col", className)}>
       <Link
         to={landingPathForRole(role)}
         aria-label="Go to your home page"
+        onClick={onNavigate}
         className="group relative flex items-center overflow-hidden border-b border-white/10 px-4 py-4"
       >
         {/* Same smoldering charcoal-to-black + crimson-glow treatment as the
@@ -82,6 +91,7 @@ export function AppSidebar({ role = "member" }: { role?: "member" | "approver" |
                 key={it.to}
                 to={it.to}
                 end={it.end}
+                onClick={onNavigate}
                 className={({ isActive }) => cn(
                   "flex w-full items-center gap-3 px-4 py-3 text-base text-white/80 transition-colors duration-200",
                   "hover:bg-white/6 hover:text-white",

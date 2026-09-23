@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Search } from "lucide-react"
+import { cn } from "cn"
 import { Input } from "@/components/ui/input"
 import { StatusBadge } from "@/components/StatusBadge"
 import { InitiativeStatusBadge } from "@/components/InitiativeStatusBadge"
@@ -9,12 +10,27 @@ import { useGlobalSearch } from "@/api/queries"
 
 const DEBOUNCE_MS = 250
 
-export function GlobalSearch() {
+interface Props {
+  autoFocus?: boolean
+  /** Fired right before navigating to a result — lets a caller that shows this
+   * as a temporary expanded overlay (the mobile topbar) collapse itself back. */
+  onNavigate?: () => void
+  /** Overrides the default width classes — e.g. a compact fixed width for the
+   * mobile topbar's toggled-open search, instead of the full-bar default. */
+  className?: string
+}
+
+export function GlobalSearch({ autoFocus, onNavigate, className }: Props = {}) {
   const [input, setInput] = useState("")
   const [debounced, setDebounced] = useState("")
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus()
+  }, [autoFocus])
 
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(input), DEBOUNCE_MS)
@@ -34,6 +50,7 @@ export function GlobalSearch() {
   const go = (path: string) => {
     setOpen(false)
     setInput("")
+    onNavigate?.()
     navigate(path)
   }
 
@@ -41,10 +58,11 @@ export function GlobalSearch() {
   const showDropdown = open && input.trim().length >= 2
 
   return (
-    <div ref={containerRef} className="relative w-80">
+    <div ref={containerRef} className={cn("relative min-w-0", className ?? "w-full sm:w-80")}>
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onFocus={() => setOpen(true)}

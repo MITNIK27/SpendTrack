@@ -69,8 +69,11 @@ export function SpendBreakdownFields({ value, onChange, categories, categoriesLo
   const set = (patch: Partial<SpendBreakdownValue>) => onChange({ ...value, ...patch })
 
   return (
-    <TableRow>
-      <TableCell className="w-1/2 whitespace-normal align-top">
+    <TableRow className="flex flex-col gap-2 border-b border-border p-3 last:border-b-0 md:table-row md:gap-0 md:border-0 md:p-0">
+      <TableCell className="block w-full whitespace-normal align-top md:table-cell md:w-1/2">
+        <span className="mb-1 block text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground md:hidden">
+          What are you spending on?
+        </span>
         <SubcategoryCombobox
           categories={categories}
           categoriesLoading={categoriesLoading}
@@ -87,7 +90,10 @@ export function SpendBreakdownFields({ value, onChange, categories, categoriesLo
           }
         />
       </TableCell>
-      <TableCell className="align-top">
+      <TableCell className="block w-full align-top md:table-cell md:w-auto">
+        <span className="mb-1 block text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground md:hidden">
+          Amount
+        </span>
         <Input
           type="number"
           min="0"
@@ -100,7 +106,10 @@ export function SpendBreakdownFields({ value, onChange, categories, categoriesLo
           aria-label="Requested amount"
         />
       </TableCell>
-      <TableCell className="align-top">
+      <TableCell className="block w-full align-top md:table-cell md:w-auto">
+        <span className="mb-1 block text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground md:hidden">
+          Remarks
+        </span>
         <Input
           type="text"
           value={value.otherDescription}
@@ -113,7 +122,7 @@ export function SpendBreakdownFields({ value, onChange, categories, categoriesLo
           aria-label="Remarks"
         />
       </TableCell>
-      <TableCell className="align-top">
+      <TableCell className="flex justify-end align-top md:table-cell md:w-auto">
         {onDelete && (
           <Button type="button" variant="ghost" size="icon-sm" onClick={onDelete} aria-label="Remove this spend">
             <Trash2 className="size-4 text-destructive" />

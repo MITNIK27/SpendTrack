@@ -1,14 +1,20 @@
 import uuid
 from decimal import Decimal
+from typing import Sequence
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm.interfaces import LoaderOption
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db, require_role
+from app.models.approval_action import ApprovalAction
+from app.models.category import Category
 from app.models.initiative import INITIATIVE_STATUSES, Initiative
+from app.models.spend_request import SpendRequest
 from app.models.user import User
 from app.schemas.initiative import (
+    InitiativeBudgetDecisionInput,
     InitiativeCreate,
     InitiativeDetail,
     InitiativeFinancialSummary,
@@ -17,7 +23,6 @@ from app.schemas.initiative import (
     InitiativeSubmitInput,
     InitiativeUpdate,
 )
-from app.models.spend_request import SpendRequest
 from app.services import (
     activity_log_service,
     initiative_service,
@@ -29,19 +34,64 @@ from app.services.spend_request_visibility import is_spend_request_visible, visi
 
 router = APIRouter(prefix="/initiatives", tags=["initiatives"])
 
+# Every relationship InitiativeRead itself serializes, plus the shallow
+# spend_requests collection the spend_request_count/total_requested_amount/
+# total_approved_amount properties need — without this, listing initiatives
+# lazy-loads owner/category/team_members/spend_requests one relationship at a
+# time per row against a remote DB, which adds up fast.
+INITIATIVE_LIST_EAGER_LOAD: Sequence[LoaderOption] = (
+    # To-one: joined into the same query rather than a separate round trip —
+    # against a remote DB where each round trip costs 150-300ms, that matters
+    # far more than SQLAlchemy's small in-process row-dedup cost.
+    joinedload(Initiative.owner),
+    joinedload(Initiative.category).selectinload(Category.subcategories),
+    joinedload(Initiative.budget_decided_by),
+    # Collections: selectinload, so this doesn't multiply the main result set.
+    selectinload(Initiative.team_members),
+    selectinload(Initiative.spend_requests),
+)
 
-def _get_owned_or_visible(db: Session, initiative_id: uuid.UUID, user: User) -> Initiative:
-    initiative = db.get(Initiative, initiative_id)
+# InitiativeDetail additionally serializes each spend request in full
+# (SpendRequestRead) — same relationships spend_requests.py's
+# SPEND_REQUEST_EAGER_LOAD covers, just reached through Initiative.spend_requests.
+INITIATIVE_DETAIL_EAGER_LOAD: Sequence[LoaderOption] = (
+    joinedload(Initiative.owner),
+    joinedload(Initiative.category).selectinload(Category.subcategories),
+    joinedload(Initiative.budget_decided_by),
+    selectinload(Initiative.team_members),
+    selectinload(Initiative.spend_requests).joinedload(SpendRequest.created_by),
+    selectinload(Initiative.spend_requests).joinedload(SpendRequest.category).selectinload(Category.subcategories),
+    selectinload(Initiative.spend_requests).joinedload(SpendRequest.subcategory),
+    selectinload(Initiative.spend_requests).selectinload(SpendRequest.team_members),
+    selectinload(Initiative.spend_requests).selectinload(SpendRequest.line_items),
+    selectinload(Initiative.spend_requests)
+    .selectinload(SpendRequest.approval_actions)
+    .joinedload(ApprovalAction.approver),
+)
+
+
+def _get_owned_or_visible(
+    db: Session, initiative_id: uuid.UUID, user: User, options: Sequence[LoaderOption] | None = None
+) -> Initiative:
+    initiative = db.get(Initiative, initiative_id, options=options)
     if initiative is None or not is_initiative_visible(initiative, user):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Initiative not found.")
     return initiative
+
+
+def _reload_initiative(db: Session, initiative_id: uuid.UUID, options: Sequence[LoaderOption]) -> Initiative:
+    """A commit expires every relationship on an object, so a plain
+    db.refresh() afterward just means each one lazy-loads again individually
+    the moment the response serializer touches it — re-fetching once with the
+    same eager-load options avoids that."""
+    return db.scalar(select(Initiative).options(*options).where(Initiative.id == initiative_id))
 
 
 def _visible_spend_requests(initiative: Initiative, user: User) -> list:
     return [sr for sr in initiative.spend_requests if is_spend_request_visible(sr, user)]
 
 
-def _financial_summary(spend_requests: list) -> InitiativeFinancialSummary:
+def _financial_summary(initiative: Initiative, spend_requests: list) -> InitiativeFinancialSummary:
     total_requested = Decimal("0")
     total_approved = Decimal("0")
     total_actual = Decimal("0")
@@ -51,6 +101,13 @@ def _financial_summary(spend_requests: list) -> InitiativeFinancialSummary:
             total_approved += sr.approved_amount
         if sr.actual_amount is not None:
             total_actual += sr.actual_amount
+    # An initiative with no spend-breakdown rows of its own is decided
+    # directly on its own budget (see decide_budget) — fold that in the same
+    # way a spend request's requested/approved amount would be.
+    if not spend_requests and initiative.estimated_total_budget is not None:
+        total_requested += initiative.estimated_total_budget
+        if initiative.budget_decision == "approved" and initiative.budget_approved_amount is not None:
+            total_approved += initiative.budget_approved_amount
     total_pending = total_requested - total_approved
     total_balance = total_approved - total_actual
     return InitiativeFinancialSummary(
@@ -79,8 +136,7 @@ def create_initiative(
         db, entity_type="initiative", entity_id=initiative.id, actor=user, action="initiative_created"
     )
     db.commit()
-    db.refresh(initiative)
-    return initiative
+    return _reload_initiative(db, initiative.id, INITIATIVE_LIST_EAGER_LOAD)
 
 
 @router.post("/{initiative_id}/submit", response_model=InitiativeDetail)
@@ -90,15 +146,15 @@ def submit_initiative(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> Initiative:
-    initiative = _get_owned_or_visible(db, initiative_id, user)
+    initiative = _get_owned_or_visible(db, initiative_id, user, options=INITIATIVE_DETAIL_EAGER_LOAD)
     if initiative.owner_id != user.id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the owner can submit this initiative.")
     if initiative.status != "draft":
         raise HTTPException(status.HTTP_409_CONFLICT, f"This initiative is '{initiative.status}', not a draft.")
 
-    # Zero spend requests is a legitimate, deliberately-submitted state (e.g.
-    # "approve my budget, line items to follow") — nothing to guard here, since
-    # unlike creation this is always an explicit action, never automatic.
+    # Zero spend requests is a legitimate, deliberately-submitted state — an
+    # initiative with only a budget and no breakdown is approved directly on
+    # its own budget (see decide_budget), never by faking a spend request.
 
     # Flip the initiative to active *before* submitting any bundled spend
     # requests below — spend_request_service.submit() now refuses to submit a
@@ -120,12 +176,31 @@ def submit_initiative(
             spend_request_service.submit(db, spend_request=spend_request, actor=user)
 
     db.commit()
-    db.refresh(initiative)
+    initiative = _reload_initiative(db, initiative.id, INITIATIVE_DETAIL_EAGER_LOAD)
     visible_spend_requests = _visible_spend_requests(initiative, user)
     return InitiativeDetail(
         **InitiativeRead.model_validate(initiative).model_dump(),
         spend_requests=visible_spend_requests,
-        financial_summary=_financial_summary(visible_spend_requests),
+        financial_summary=_financial_summary(initiative, visible_spend_requests),
+    )
+
+
+@router.post("/{initiative_id}/budget-decision", response_model=InitiativeDetail)
+def decide_initiative_budget(
+    initiative_id: uuid.UUID,
+    payload: InitiativeBudgetDecisionInput,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("approver", "admin")),
+) -> Initiative:
+    initiative = _get_owned_or_visible(db, initiative_id, user, options=INITIATIVE_DETAIL_EAGER_LOAD)
+    initiative_service.decide_budget(db, initiative=initiative, approver=user, action=payload.action, comment=payload.comment)
+    db.commit()
+    initiative = _reload_initiative(db, initiative.id, INITIATIVE_DETAIL_EAGER_LOAD)
+    visible_spend_requests = _visible_spend_requests(initiative, user)
+    return InitiativeDetail(
+        **InitiativeRead.model_validate(initiative).model_dump(),
+        spend_requests=visible_spend_requests,
+        financial_summary=_financial_summary(initiative, visible_spend_requests),
     )
 
 
@@ -138,7 +213,7 @@ def list_initiatives(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> list[Initiative]:
-    stmt = select(Initiative).where(visible_initiatives_clause(user))
+    stmt = select(Initiative).options(*INITIATIVE_LIST_EAGER_LOAD).where(visible_initiatives_clause(user))
     if user.role != "member" and owner_id is not None:
         stmt = stmt.where(Initiative.owner_id == owner_id)
     if status_filter is not None:
@@ -167,12 +242,12 @@ def read_initiative(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> Initiative:
-    initiative = _get_owned_or_visible(db, initiative_id, user)
+    initiative = _get_owned_or_visible(db, initiative_id, user, options=INITIATIVE_DETAIL_EAGER_LOAD)
     visible_spend_requests = _visible_spend_requests(initiative, user)
     return InitiativeDetail(
         **InitiativeRead.model_validate(initiative).model_dump(),
         spend_requests=visible_spend_requests,
-        financial_summary=_financial_summary(visible_spend_requests),
+        financial_summary=_financial_summary(initiative, visible_spend_requests),
     )
 
 
@@ -193,8 +268,7 @@ def update_initiative(
     if team_member_ids is not None:
         initiative.team_members = team_members_service.resolve(db, team_member_ids)
     db.commit()
-    db.refresh(initiative)
-    return initiative
+    return _reload_initiative(db, initiative.id, INITIATIVE_LIST_EAGER_LOAD)
 
 
 @router.delete("/{initiative_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -246,5 +320,4 @@ def update_initiative_status(
         metadata={"status": payload.status},
     )
     db.commit()
-    db.refresh(initiative)
-    return initiative
+    return _reload_initiative(db, initiative.id, INITIATIVE_LIST_EAGER_LOAD)

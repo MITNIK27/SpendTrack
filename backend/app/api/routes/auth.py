@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -15,6 +16,7 @@ from app.schemas.user import UserRead
 from app.services import activity_log_service
 
 router = APIRouter(tags=["auth"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/auth/google", response_model=TokenResponse)
@@ -28,7 +30,11 @@ def sign_in_with_google(
     decode, never anything the client could have supplied unverified."""
     try:
         claims = verify_google_id_token(payload.id_token)
-    except firebase_exceptions.FirebaseError:
+    except firebase_exceptions.FirebaseError as err:
+        # Logged (not returned to the client) so a 401 here is diagnosable from the
+        # server console — e.g. a project-id mismatch, a revoked/expired token, or the
+        # Admin SDK failing to reach Google to check certs/revocation status.
+        logger.warning("Google sign-in token verification failed: %s", err)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired Google sign-in. Please try again.")
 
     email: str | None = claims.get("email")

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { MobileRow, MobileField } from "@/components/ui/mobile-card-row"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -82,55 +83,106 @@ interface TableProps {
 export function ApprovalTable({ spendRequests, state, initiativeNames }: TableProps) {
   if (spendRequests.length === 0) return null
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-10">
-            <Checkbox checked={state.allSelected} onCheckedChange={(v) => state.toggleAll(!!v)} aria-label="Select all" />
-          </TableHead>
-          <TableHead>Description</TableHead>
-          {initiativeNames && <TableHead>Initiative</TableHead>}
-          <TableHead>Category</TableHead>
-          <TableHead>Amount</TableHead>
-          <TableHead>Approval Remarks</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {spendRequests.map((sr) => (
-          <TableRow key={sr.id}>
-            <TableCell>
+    <>
+      <Table className="hidden lg:table">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-12">#</TableHead>
+            <TableHead className="w-10">
+              <Checkbox checked={state.allSelected} onCheckedChange={(v) => state.toggleAll(!!v)} aria-label="Select all" />
+            </TableHead>
+            <TableHead>Description</TableHead>
+            {initiativeNames && <TableHead>Initiative</TableHead>}
+            <TableHead>Requested By</TableHead>
+            <TableHead>Category</TableHead>
+            <TableHead>Amount</TableHead>
+            <TableHead>Approval Remarks</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {spendRequests.map((sr, i) => (
+            <TableRow key={sr.id}>
+              <TableCell className="tabular-nums text-muted-foreground">{i + 1}</TableCell>
+              <TableCell>
+                <Checkbox
+                  checked={state.selected.has(sr.id)}
+                  onCheckedChange={(v) => state.toggleOne(sr.id, !!v)}
+                  aria-label={`Select ${sr.description ?? sr.category.name}`}
+                />
+              </TableCell>
+              <TableCell>
+                <Link to={`/spend-requests/${sr.id}`} className="font-medium text-primary-text hover:underline">
+                  {sr.description ?? sr.category.name}
+                </Link>
+                {sr.other_description && (
+                  <div className="mt-0.5 max-w-72 truncate text-xs text-foreground" title={sr.other_description}>
+                    {sr.other_description}
+                  </div>
+                )}
+              </TableCell>
+              {initiativeNames && (
+                <TableCell>
+                  <Link to={`/initiatives/${sr.initiative_id}`} className="hover:underline">
+                    {initiativeNames.get(sr.initiative_id) ?? "—"}
+                  </Link>
+                </TableCell>
+              )}
+              <TableCell>{sr.created_by.name}</TableCell>
+              <TableCell>{sr.category.name}</TableCell>
+              <TableCell className="tabular-nums">{formatMoney(sr.requested_amount, sr.currency)}</TableCell>
+              <TableCell>
+                <Input
+                  value={state.remarks[sr.id] ?? ""}
+                  onChange={(e) => state.setRemark(sr.id, e.target.value)}
+                  placeholder="Optional"
+                  className="h-8"
+                />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      <div className="flex flex-col gap-3 p-3 lg:hidden">
+        <label className="flex items-center gap-2 px-1 text-sm">
+          <Checkbox checked={state.allSelected} onCheckedChange={(v) => state.toggleAll(!!v)} aria-label="Select all" />
+          Select all
+        </label>
+        {spendRequests.map((sr, i) => (
+          <MobileRow key={sr.id}>
+            <div className="flex items-start gap-3">
               <Checkbox
+                className="mt-0.5"
                 checked={state.selected.has(sr.id)}
                 onCheckedChange={(v) => state.toggleOne(sr.id, !!v)}
                 aria-label={`Select ${sr.description ?? sr.category.name}`}
               />
-            </TableCell>
-            <TableCell>
+              <span className="text-xs font-semibold text-muted-foreground">#{i + 1}</span>
               <Link to={`/spend-requests/${sr.id}`} className="font-medium text-primary-text hover:underline">
                 {sr.description ?? sr.category.name}
               </Link>
-            </TableCell>
+            </div>
+            {sr.other_description && <p className="text-xs text-foreground">{sr.other_description}</p>}
             {initiativeNames && (
-              <TableCell>
+              <MobileField label="Initiative">
                 <Link to={`/initiatives/${sr.initiative_id}`} className="hover:underline">
                   {initiativeNames.get(sr.initiative_id) ?? "—"}
                 </Link>
-              </TableCell>
+              </MobileField>
             )}
-            <TableCell>{sr.category.name}</TableCell>
-            <TableCell className="tabular-nums">{formatMoney(sr.requested_amount, sr.currency)}</TableCell>
-            <TableCell>
-              <Input
-                value={state.remarks[sr.id] ?? ""}
-                onChange={(e) => state.setRemark(sr.id, e.target.value)}
-                placeholder="Optional"
-                className="h-8"
-              />
-            </TableCell>
-          </TableRow>
+            <MobileField label="Requested By">{sr.created_by.name}</MobileField>
+            <MobileField label="Category">{sr.category.name}</MobileField>
+            <MobileField label="Amount">{formatMoney(sr.requested_amount, sr.currency)}</MobileField>
+            <Input
+              value={state.remarks[sr.id] ?? ""}
+              onChange={(e) => state.setRemark(sr.id, e.target.value)}
+              placeholder="Remark (optional)"
+              className="mt-1 h-8"
+            />
+          </MobileRow>
         ))}
-      </TableBody>
-    </Table>
+      </div>
+    </>
   )
 }
 

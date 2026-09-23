@@ -24,6 +24,10 @@ class SpendRequestReportRow(BaseModel):
     decided_at: datetime | None
     decided_by: str | None
     decision_comment: str | None
+    # True when this row is an initiative's own budget (no breakdown of its
+    # own) rather than a real spend request — `id` is then the initiative's
+    # id, so a client must link to the initiative, not a spend request.
+    is_initiative_budget: bool
 
 
 class SpendSummaryKPIs(BaseModel):

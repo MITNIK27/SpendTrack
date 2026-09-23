@@ -5,9 +5,16 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { BackButton } from "@/components/BackButton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { MobileRow, MobileField } from "@/components/ui/mobile-card-row"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ApprovalTable, useApprovalChecklist } from "@/components/ApprovalChecklist"
+import {
+  InitiativeBudgetDecidedNotice,
+  InitiativeBudgetDecisionCard,
+  isInitiativeBudgetPending,
+  useInitiativeBudgetDecision,
+} from "@/components/InitiativeBudgetDecision"
 import { InitiativeStatusBadge } from "@/components/InitiativeStatusBadge"
 import { formatMoney } from "@/lib/money"
 import { useInitiative, useSubmitInitiative, useSubmitSpendRequestById } from "@/api/queries"
@@ -30,6 +37,7 @@ export default function InitiativeDetail() {
   // until the initiative has actually loaded.
   const pending = initiative?.spend_requests.filter((sr) => PENDING_DECISION_STATUSES.includes(sr.status)) ?? []
   const approvalChecklist = useApprovalChecklist(pending, id)
+  const budgetDecision = useInitiativeBudgetDecision(id)
 
   if (isLoading) {
     return (
@@ -52,6 +60,15 @@ export default function InitiativeDetail() {
   const s = initiative.financial_summary
   const isOwner = initiative.owner.id === user?.id
   const draftSpendRequests = initiative.spend_requests.filter((sr) => sr.status === "draft")
+
+  // The budget entered up front can drift from what's actually been broken
+  // down into spend requests (some still to come, or the breakdown adds up
+  // to more than planned) — flagged below so it's never silently invisible.
+  const hasBreakdown = initiative.spend_requests.length > 0
+  const budgetAmount = initiative.estimated_total_budget !== null ? Number(initiative.estimated_total_budget) : null
+  const requestedAmount = Number(s.total_requested)
+  const budgetMismatch = hasBreakdown && budgetAmount !== null && budgetAmount !== requestedAmount
+  const budgetGap = budgetMismatch && budgetAmount !== null ? requestedAmount - budgetAmount : 0
 
   const openSubmitDialog = () => {
     if (draftSpendRequests.length === 0) {
@@ -85,7 +102,7 @@ export default function InitiativeDetail() {
 
   return (
     <div className="mx-auto max-w-[960px]">
-      <div className="mb-4 flex items-end justify-between">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <BackButton to={user?.role === "member" ? "/" : "/initiatives"} />
           <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
@@ -97,8 +114,11 @@ export default function InitiativeDetail() {
             {initiative.event_date && <span>{initiative.event_date}</span>}
             <InitiativeStatusBadge status={initiative.status} />
           </p>
+          {initiative.objective && (
+            <p className="mt-2 max-w-prose text-sm text-foreground">{initiative.objective}</p>
+          )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {isOwner && initiative.status === "draft" && (
             <Button onClick={openSubmitDialog} disabled={submitInitiative.isPending}>
               {submitInitiative.isPending ? "Submitting…" : "Submit for Approval"}
@@ -122,23 +142,43 @@ export default function InitiativeDetail() {
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-4">
+      <div className={`mb-6 grid grid-cols-1 gap-3 ${budgetAmount !== null ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+        {budgetAmount !== null && (
+          <SummaryTile label="Budget" value={formatMoney(initiative.estimated_total_budget, initiative.currency)} />
+        )}
         <SummaryTile label="Requested" value={formatMoney(s.total_requested, initiative.currency)} />
         <SummaryTile label="Approved" value={formatMoney(s.total_approved, initiative.currency)} />
       </div>
 
-      {initiative.spend_requests.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 border border-border bg-card px-6 py-12 text-center">
-          <h3 className="text-lg font-bold">This initiative doesn't have any spend yet.</h3>
-          {canAddSpend && (
-            <>
-              <p className="text-sm text-muted-foreground">Add the first spend request for this initiative.</p>
-              <Button asChild variant="outline">
-                <Link to={`/initiatives/${initiative.id}/spend-requests/new`}>+ Add Spend</Link>
-              </Button>
-            </>
-          )}
+      {budgetMismatch && (
+        <div className="mb-6 border border-chip-warning-fg bg-chip-warning-bg px-4 py-3 text-sm text-chip-warning-fg">
+          {budgetGap < 0
+            ? `Budget was ${formatMoney(initiative.estimated_total_budget, initiative.currency)} — only ${formatMoney(s.total_requested, initiative.currency)} has been requested so far (${formatMoney(String(Math.abs(budgetGap)), initiative.currency)} not yet allocated to a spend request).`
+            : `Budget was ${formatMoney(initiative.estimated_total_budget, initiative.currency)} — spend requests now total ${formatMoney(s.total_requested, initiative.currency)}, ${formatMoney(String(budgetGap), initiative.currency)} more than the approved budget.`}
         </div>
+      )}
+
+      {initiative.spend_requests.length === 0 ? (
+        canDecide && isInitiativeBudgetPending(initiative) ? (
+          <InitiativeBudgetDecisionCard initiative={initiative} state={budgetDecision} />
+        ) : initiative.budget_decision ? (
+          <InitiativeBudgetDecidedNotice initiative={initiative} />
+        ) : (
+          <div className="flex flex-col items-center gap-3 border border-border bg-card px-6 py-12 text-center">
+            <h3 className="text-lg font-bold">This initiative doesn't have any spend yet.</h3>
+            {!canDecide && isInitiativeBudgetPending(initiative) && (
+              <p className="text-xs font-medium text-warning">Awaiting Siddharth's decision on the budget</p>
+            )}
+            {canAddSpend && (
+              <>
+                <p className="text-sm text-muted-foreground">Add the first spend request for this initiative.</p>
+                <Button asChild variant="outline">
+                  <Link to={`/initiatives/${initiative.id}/spend-requests/new`}>+ Add Spend</Link>
+                </Button>
+              </>
+            )}
+          </div>
+        )
       ) : (
         <>
           {canDecide && pending.length > 0 && (
@@ -157,9 +197,10 @@ export default function InitiativeDetail() {
             <div>
               <h2 className="mb-2 text-lg font-bold">Spend Requests</h2>
               <div className="border border-border bg-card">
-                <Table>
+                <Table className="hidden lg:table">
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">#</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead>Category</TableHead>
                       <TableHead>Amount</TableHead>
@@ -167,7 +208,7 @@ export default function InitiativeDetail() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rest.map((sr) => {
+                    {rest.map((sr, i) => {
                       const awaitingDecision = !canDecide && PENDING_DECISION_STATUSES.includes(sr.status)
                       // Submitting a lone spend request only makes sense once the initiative
                       // itself is published — otherwise it'd land in Siddharth's queue with
@@ -176,10 +217,16 @@ export default function InitiativeDetail() {
                         sr.status === "draft" && sr.created_by.id === user?.id && initiative.status !== "draft"
                       return (
                         <TableRow key={sr.id} className={awaitingDecision ? "bg-warning/10" : undefined}>
+                          <TableCell className="tabular-nums text-muted-foreground">{i + 1}</TableCell>
                           <TableCell>
                             <Link to={`/spend-requests/${sr.id}`} className="font-medium text-primary-text hover:underline">
                               {sr.description}
                             </Link>
+                            {sr.other_description && (
+                              <div className="mt-0.5 max-w-72 truncate text-xs text-foreground" title={sr.other_description}>
+                                {sr.other_description}
+                              </div>
+                            )}
                             {awaitingDecision && (
                               <div className="text-xs font-medium text-warning">Awaiting Siddharth's decision</div>
                             )}
@@ -204,6 +251,42 @@ export default function InitiativeDetail() {
                     })}
                   </TableBody>
                 </Table>
+
+                <div className="flex flex-col gap-3 p-3 lg:hidden">
+                  {rest.map((sr, i) => {
+                    const awaitingDecision = !canDecide && PENDING_DECISION_STATUSES.includes(sr.status)
+                    const canSubmitThis =
+                      sr.status === "draft" && sr.created_by.id === user?.id && initiative.status !== "draft"
+                    return (
+                      <MobileRow key={sr.id} className={awaitingDecision ? "bg-warning/10" : undefined}>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-xs font-semibold text-muted-foreground">#{i + 1}</span>
+                          <Link to={`/spend-requests/${sr.id}`} className="font-medium text-primary-text hover:underline">
+                            {sr.description}
+                          </Link>
+                        </div>
+                        {sr.other_description && <p className="text-xs text-foreground">{sr.other_description}</p>}
+                        {awaitingDecision && (
+                          <div className="text-xs font-medium text-warning">Awaiting Siddharth's decision</div>
+                        )}
+                        <MobileField label="Category">{sr.category.name}</MobileField>
+                        <MobileField label="Amount">{formatMoney(sr.requested_amount, initiative.currency)}</MobileField>
+                        <MobileField label="Remarks">{sr.latest_decision_comment ?? "—"}</MobileField>
+                        {canSubmitThis && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="mt-1"
+                            onClick={() => doSubmitOneSpendRequest(sr.id)}
+                            disabled={submitSpendRequest.isPending}
+                          >
+                            Submit for Approval
+                          </Button>
+                        )}
+                      </MobileRow>
+                    )
+                  })}
+                </div>
               </div>
             </div>
           )}

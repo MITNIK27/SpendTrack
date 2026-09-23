@@ -86,7 +86,7 @@ export default function CreateInitiative() {
 
             <div className="border border-border bg-card">
               <Table>
-                <TableHeader>
+                <TableHeader className="hidden md:table-header-group">
                   <TableRow>
                     <TableHead>
                       <span className="flex items-center gap-1.5">

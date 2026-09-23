@@ -9,7 +9,7 @@ export default function AdminConsole() {
         <p className="mt-1 text-base text-muted-foreground">System configuration and reference data.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <ComingSoonTile icon={Tags} title="Category Management" description="Manage the spend category taxonomy." />
       </div>
     </div>

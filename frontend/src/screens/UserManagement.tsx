@@ -3,6 +3,7 @@ import { toast } from "sonner"
 import { BackButton } from "@/components/BackButton"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { MobileRow, MobileField } from "@/components/ui/mobile-card-row"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAdminUsers, useUpdateUser } from "@/api/queries"
 import { useAuth } from "@/auth/AuthContext"
@@ -70,9 +71,10 @@ export default function UserManagement() {
 
       {!isLoading && !isError && (
         <div className="border border-border bg-card">
-          <Table>
+          <Table className="hidden lg:table">
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">#</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
@@ -81,11 +83,12 @@ export default function UserManagement() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(users ?? []).map((u) => {
+              {(users ?? []).map((u, i) => {
                 const isSelf = u.id === me?.id
                 const busy = pendingId === u.id
                 return (
                   <TableRow key={u.id}>
+                    <TableCell className="tabular-nums text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">{u.name}</TableCell>
                     <TableCell className="text-muted-foreground">{u.email}</TableCell>
                     <TableCell>
@@ -125,6 +128,53 @@ export default function UserManagement() {
               })}
             </TableBody>
           </Table>
+
+          <div className="flex flex-col gap-3 p-3 lg:hidden">
+            {(users ?? []).map((u, i) => {
+              const isSelf = u.id === me?.id
+              const busy = pendingId === u.id
+              return (
+                <MobileRow key={u.id}>
+                  <div className="flex items-baseline gap-2 font-medium">
+                    <span className="text-xs font-semibold text-muted-foreground">#{i + 1}</span>
+                    {u.name}
+                  </div>
+                  <MobileField label="Email"><span className="text-muted-foreground">{u.email}</span></MobileField>
+                  <MobileField label="Status">
+                    <span className={u.is_active ? "text-foreground" : "text-muted-foreground"}>
+                      {u.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </MobileField>
+                  <div className="mt-1 flex items-center justify-between gap-2 border-t border-border pt-2">
+                    <Select
+                      value={u.role}
+                      onValueChange={(role) => changeRole(u.id, role)}
+                      disabled={isSelf || busy}
+                    >
+                      <SelectTrigger className="h-8 w-full" title={isSelf ? "You can't change your own role" : undefined}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(ROLE_LABEL).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      disabled={isSelf || busy}
+                      title={isSelf ? "You can't deactivate your own account" : undefined}
+                      onClick={() => toggleActive(u.id, u.is_active)}
+                    >
+                      {u.is_active ? "Deactivate" : "Activate"}
+                    </Button>
+                  </div>
+                </MobileRow>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>

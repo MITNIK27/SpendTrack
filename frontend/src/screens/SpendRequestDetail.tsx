@@ -54,18 +54,26 @@ export default function SpendRequestDetail() {
 
   return (
     <div className="mx-auto max-w-[840px]">
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <BackButton to={`/initiatives/${sr.initiative_id}`} label="Back to Initiative" />
           <h1 className="mt-1 text-3xl font-bold">{sr.description ?? sr.category.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {sr.category.code}. {sr.category.name}{sr.subcategory ? ` — ${sr.subcategory.name}` : ""}
+            {sr.category.name}{sr.subcategory ? ` — ${sr.subcategory.name}` : ""}
           </p>
+          {sr.other_description && (
+            <div className="mt-3 max-w-prose">
+              <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                Description of spend
+              </div>
+              <p className="mt-0.5 text-sm font-medium text-foreground">{sr.other_description}</p>
+            </div>
+          )}
         </div>
         <StatusBadge status={sr.status} />
       </div>
 
-      <div className="mb-6 grid grid-cols-3 gap-4">
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <SummaryTile label="Requested" value={formatMoney(sr.requested_amount, sr.currency)} />
         <SummaryTile label="Approved" value={formatMoney(sr.approved_amount, sr.currency)} />
         <SummaryTile label="Actual" value={formatMoney(sr.actual_amount, sr.currency)} />
@@ -79,15 +87,12 @@ export default function SpendRequestDetail() {
         </div>
       )}
 
-      {(sr.vendor || sr.other_description || sr.line_items.length > 0 || sr.team_members.length > 0) && (
+      {(sr.vendor || sr.line_items.length > 0 || sr.team_members.length > 0) && (
       <Card className="mb-6">
         <CardContent className="pt-6">
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm md:grid-cols-2">
             {sr.vendor && (
               <div className="col-span-2"><ReviewRow label="Vendor" value={sr.vendor} /></div>
-            )}
-            {sr.other_description && (
-              <div className="col-span-2"><ReviewRow label="Description of spend" value={sr.other_description} /></div>
             )}
             {sr.line_items.length > 0 && (
               <div className="col-span-2">

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { MobileRow, MobileField } from "@/components/ui/mobile-card-row"
 import { TablePagination, PAGE_SIZES } from "@/components/TablePagination"
 import { StatusBadge } from "@/components/StatusBadge"
 import { formatMoney } from "@/lib/money"
@@ -50,9 +51,10 @@ export function SpendRequestRowsDialog({ open, onOpenChange, title, filters }: P
         {!isLoading && rows && rows.length > 0 && (
           <div className="flex min-h-0 flex-1 flex-col border border-border">
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <Table>
+              <Table className="hidden lg:table">
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">#</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Initiative</TableHead>
                     <TableHead>Requester</TableHead>
@@ -65,10 +67,14 @@ export function SpendRequestRowsDialog({ open, onOpenChange, title, filters }: P
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pageRows.map((row) => (
+                  {pageRows.map((row, i) => (
                     <TableRow key={row.id}>
+                      <TableCell className="tabular-nums text-muted-foreground">{(page - 1) * pageSize + i + 1}</TableCell>
                       <TableCell className="max-w-64 min-w-40 whitespace-normal break-words">
-                        <Link to={`/spend-requests/${row.id}`} className="font-medium text-primary-text hover:underline">
+                        <Link
+                          to={row.is_initiative_budget ? `/initiatives/${row.initiative_id}` : `/spend-requests/${row.id}`}
+                          className="font-medium text-primary-text hover:underline"
+                        >
                           {row.description}
                         </Link>
                       </TableCell>
@@ -90,6 +96,38 @@ export function SpendRequestRowsDialog({ open, onOpenChange, title, filters }: P
                   ))}
                 </TableBody>
               </Table>
+
+              <div className="flex flex-col gap-3 p-3 lg:hidden">
+                {pageRows.map((row, i) => (
+                  <MobileRow key={row.id}>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-xs font-semibold text-muted-foreground">#{(page - 1) * pageSize + i + 1}</span>
+                      <Link
+                        to={row.is_initiative_budget ? `/initiatives/${row.initiative_id}` : `/spend-requests/${row.id}`}
+                        className="font-medium text-primary-text hover:underline"
+                      >
+                        {row.description}
+                      </Link>
+                    </div>
+                    <MobileField label="Initiative">
+                      <Link to={`/initiatives/${row.initiative_id}`} className="hover:underline">
+                        {row.initiative_name}
+                      </Link>
+                    </MobileField>
+                    <MobileField label="Requester">{row.requester_name}</MobileField>
+                    <MobileField label="Requested">{formatMoney(row.requested_amount)}</MobileField>
+                    <MobileField label="Approved">{formatMoney(row.approved_amount)}</MobileField>
+                    <MobileField label="Actual">{formatMoney(row.actual_amount)}</MobileField>
+                    <MobileField label="Status"><StatusBadge status={row.status} /></MobileField>
+                    <MobileField label="Decided By">{row.decided_by ?? "—"}</MobileField>
+                    {row.decision_comment && (
+                      <MobileField label="Comment">
+                        <span className="max-w-48 whitespace-normal break-words">{row.decision_comment}</span>
+                      </MobileField>
+                    )}
+                  </MobileRow>
+                ))}
+              </div>
             </div>
             <div className="shrink-0">
               <TablePagination

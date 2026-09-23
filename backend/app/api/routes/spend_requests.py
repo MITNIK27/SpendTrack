@@ -2,10 +2,12 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.api.deps import get_current_user, get_db, require_role
 from app.api.routes.initiatives import _get_owned_or_visible
+from app.models.approval_action import ApprovalAction
+from app.models.category import Category
 from app.models.initiative import Initiative
 from app.models.spend_request import SpendRequest
 from app.models.user import User
@@ -16,12 +18,40 @@ from app.services.spend_request_visibility import is_spend_request_visible, visi
 
 router = APIRouter(tags=["spend-requests"])
 
+# Every relationship SpendRequestRead actually serializes (including
+# latest_decision_comment, which walks approval_actions -> approver). Without
+# this, each row lazy-loads 6 relationships one at a time — against a remote
+# DB that's 6x round-trip latency per row, which is exactly what was making
+# the approve flow feel like a multi-second page reload.
+SPEND_REQUEST_EAGER_LOAD = (
+    # To-one relationships: joined into the same query (no extra round trip)
+    # rather than selectinload's separate SELECT — against a remote DB where
+    # each round trip costs 150-300ms, folding these in matters much more
+    # than avoiding SQLAlchemy's small in-process row-dedup cost.
+    joinedload(SpendRequest.created_by),
+    joinedload(SpendRequest.category).selectinload(Category.subcategories),
+    joinedload(SpendRequest.subcategory),
+    # Collections: selectinload, so a request with several line items/team
+    # members/approval actions doesn't multiply the main result set.
+    selectinload(SpendRequest.team_members),
+    selectinload(SpendRequest.line_items),
+    selectinload(SpendRequest.approval_actions).joinedload(ApprovalAction.approver),
+)
+
 
 def _get_spend_request_or_404(db: Session, spend_request_id: uuid.UUID, user: User) -> SpendRequest:
-    spend_request = db.get(SpendRequest, spend_request_id)
+    spend_request = db.get(SpendRequest, spend_request_id, options=SPEND_REQUEST_EAGER_LOAD)
     if spend_request is None or not is_spend_request_visible(spend_request, user):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Spend request not found.")
     return spend_request
+
+
+def _reload_spend_request(db: Session, spend_request_id: uuid.UUID) -> SpendRequest:
+    """A commit expires every relationship on an object, so a plain
+    db.refresh() afterward just means each one lazy-loads again individually
+    the moment the response serializer touches it — re-fetching once with the
+    same eager-load options avoids that."""
+    return db.scalar(select(SpendRequest).options(*SPEND_REQUEST_EAGER_LOAD).where(SpendRequest.id == spend_request_id))
 
 
 @router.post(
@@ -40,8 +70,7 @@ def create_spend_request(
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the initiative's owner can add spend to it.")
     spend_request = spend_request_service.create(db, initiative=initiative, creator=user, data=payload.model_dump())
     db.commit()
-    db.refresh(spend_request)
-    return spend_request
+    return _reload_spend_request(db, spend_request.id)
 
 
 @router.get("/spend-requests", response_model=list[SpendRequestRead])
@@ -53,7 +82,7 @@ def list_spend_requests(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> list[SpendRequest]:
-    stmt = select(SpendRequest).where(visible_spend_requests_clause(user))
+    stmt = select(SpendRequest).options(*SPEND_REQUEST_EAGER_LOAD).where(visible_spend_requests_clause(user))
     if user.role != "member" and created_by_id is not None:
         stmt = stmt.where(SpendRequest.created_by_id == created_by_id)
     if initiative_id is not None:
@@ -89,8 +118,7 @@ def update_spend_request(
         db, spend_request=spend_request, actor=user, data=payload.model_dump(exclude_unset=True)
     )
     db.commit()
-    db.refresh(spend_request)
-    return spend_request
+    return _reload_spend_request(db, spend_request.id)
 
 
 @router.post("/spend-requests/{spend_request_id}/submit", response_model=SpendRequestRead)
@@ -102,8 +130,7 @@ def submit_spend_request(
     spend_request = _get_spend_request_or_404(db, spend_request_id, user)
     spend_request_service.submit(db, spend_request=spend_request, actor=user)
     db.commit()
-    db.refresh(spend_request)
-    return spend_request
+    return _reload_spend_request(db, spend_request.id)
 
 
 @router.post("/spend-requests/approve-batch", response_model=list[SpendRequestRead])
@@ -118,7 +145,7 @@ def approve_batch(
     here (or no longer pending by the time this runs) is silently skipped
     rather than erroring the whole batch — a stale/already-decided id is not
     the caller's fault to fix before retrying."""
-    approved: list[SpendRequest] = []
+    approved_ids: list[uuid.UUID] = []
     for item in payload.decisions:
         spend_request = db.get(SpendRequest, item.spend_request_id)
         if (
@@ -135,11 +162,20 @@ def approve_batch(
             approved_amount=None,
             comment=item.comment,
         )
-        approved.append(spend_request)
+        approved_ids.append(spend_request.id)
     db.commit()
-    for spend_request in approved:
-        db.refresh(spend_request)
-    return approved
+    if not approved_ids:
+        return []
+    # One eager-loaded query for the whole batch rather than a refresh per row
+    # (each of which would otherwise lazy-load its relationships one at a
+    # time after the commit above expires them).
+    by_id = {
+        sr.id: sr
+        for sr in db.scalars(
+            select(SpendRequest).options(*SPEND_REQUEST_EAGER_LOAD).where(SpendRequest.id.in_(approved_ids))
+        ).all()
+    }
+    return [by_id[sr_id] for sr_id in approved_ids]
 
 
 @router.post("/spend-requests/{spend_request_id}/decisions", response_model=SpendRequestRead)
@@ -159,8 +195,7 @@ def decide_spend_request(
         comment=payload.comment,
     )
     db.commit()
-    db.refresh(spend_request)
-    return spend_request
+    return _reload_spend_request(db, spend_request.id)
 
 
 @router.post("/spend-requests/{spend_request_id}/actual", response_model=SpendRequestRead)
@@ -181,8 +216,7 @@ def record_actual_spend(
         actual_spend_date=payload.actual_spend_date,
     )
     db.commit()
-    db.refresh(spend_request)
-    return spend_request
+    return _reload_spend_request(db, spend_request.id)
 
 
 @router.delete("/spend-requests/{spend_request_id}", status_code=status.HTTP_204_NO_CONTENT)

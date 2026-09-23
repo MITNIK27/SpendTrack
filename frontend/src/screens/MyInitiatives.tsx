@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { FolderPlus, Pencil, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { MobileRow, MobileField } from "@/components/ui/mobile-card-row"
 import { TablePagination, PAGE_SIZES } from "@/components/TablePagination"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { InitiativeStatusBadge } from "@/components/InitiativeStatusBadge"
@@ -11,6 +12,18 @@ import { useDeleteInitiative, useInitiatives } from "@/api/queries"
 import { ApiError } from "@/api/client"
 import { formatMoney } from "@/lib/money"
 import type { Initiative } from "@/types/domain"
+
+/** True once there's an actual breakdown whose total doesn't match the
+ * original budget — the Requested cell is highlighted in that case so the
+ * gap is visible without opening the initiative. */
+function requestedIsOffBudget(initiative: Initiative): boolean {
+  return (
+    initiative.spend_request_count > 0 &&
+    initiative.total_requested_amount !== null &&
+    initiative.estimated_total_budget !== null &&
+    Number(initiative.total_requested_amount) !== Number(initiative.estimated_total_budget)
+  )
+}
 
 export default function MyInitiatives() {
   const { user } = useAuth()
@@ -45,7 +58,7 @@ export default function MyInitiatives() {
 
   return (
     <div>
-      <div className="mb-6 flex items-end justify-between">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">{canCreate ? "My Initiatives" : "Initiatives"}</h1>
           <p className="mt-1 text-base text-muted-foreground">
@@ -99,28 +112,44 @@ export default function MyInitiatives() {
 
       {!isLoading && !isError && (initiatives?.length ?? 0) > 0 && canCreate && (
         <div className="border border-border bg-card">
-          <Table>
+          <Table className="hidden lg:table">
             <TableHeader className="bg-muted/60">
               <TableRow className="divide-x divide-border">
+                <TableHead className="w-12 px-4">#</TableHead>
                 <TableHead className="px-4">Initiative</TableHead>
                 <TableHead className="px-4">Type</TableHead>
                 <TableHead className="px-4">Budget</TableHead>
+                <TableHead className="px-4">Requested</TableHead>
+                <TableHead className="px-4">Approved</TableHead>
                 <TableHead className="px-4">Status</TableHead>
                 <TableHead className="px-4 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((initiative) => {
+              {rows.map((initiative, i) => {
                 const isOwner = initiative.owner.id === user?.id
                 return (
                   <TableRow key={initiative.id} className="cursor-pointer divide-x divide-border odd:bg-card even:bg-muted/25">
+                    <TableCell className="px-4 py-1.5 tabular-nums text-muted-foreground">
+                      {(page - 1) * pageSize + i + 1}
+                    </TableCell>
                     <TableCell className="px-4 py-1.5">
                       <Link to={`/initiatives/${initiative.id}`} className="font-medium text-primary-text hover:underline">
                         {initiative.name}
                       </Link>
                     </TableCell>
                     <TableCell className="px-4 py-1.5">{initiative.type ?? "—"}</TableCell>
-                    <TableCell className="px-4 py-1.5">{formatMoney(initiative.estimated_total_budget, initiative.currency)}</TableCell>
+                    <TableCell className="px-4 py-1.5 tabular-nums">
+                      {formatMoney(initiative.estimated_total_budget, initiative.currency)}
+                    </TableCell>
+                    <TableCell
+                      className={`px-4 py-1.5 tabular-nums ${requestedIsOffBudget(initiative) ? "font-medium text-chip-warning-fg" : ""}`}
+                    >
+                      {formatMoney(initiative.total_requested_amount, initiative.currency)}
+                    </TableCell>
+                    <TableCell className="px-4 py-1.5 tabular-nums">
+                      {formatMoney(initiative.total_approved_amount, initiative.currency)}
+                    </TableCell>
                     <TableCell className="px-4 py-1.5">
                       <InitiativeStatusBadge status={initiative.status} />
                     </TableCell>
@@ -151,6 +180,50 @@ export default function MyInitiatives() {
               })}
             </TableBody>
           </Table>
+          <div className="flex flex-col gap-3 p-3 lg:hidden">
+            {rows.map((initiative, i) => {
+              const isOwner = initiative.owner.id === user?.id
+              return (
+                <MobileRow key={initiative.id}>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xs font-semibold text-muted-foreground">#{(page - 1) * pageSize + i + 1}</span>
+                    <Link to={`/initiatives/${initiative.id}`} className="font-medium text-primary-text hover:underline">
+                      {initiative.name}
+                    </Link>
+                  </div>
+                  <MobileField label="Type">{initiative.type ?? "—"}</MobileField>
+                  <MobileField label="Budget">{formatMoney(initiative.estimated_total_budget, initiative.currency)}</MobileField>
+                  <MobileField label="Requested">
+                    <span className={requestedIsOffBudget(initiative) ? "font-medium text-chip-warning-fg" : undefined}>
+                      {formatMoney(initiative.total_requested_amount, initiative.currency)}
+                    </span>
+                  </MobileField>
+                  <MobileField label="Approved">{formatMoney(initiative.total_approved_amount, initiative.currency)}</MobileField>
+                  <MobileField label="Status"><InitiativeStatusBadge status={initiative.status} /></MobileField>
+                  {isOwner && (
+                    <div className="mt-1 flex justify-end gap-1 border-t border-border pt-2">
+                      <Button asChild variant="ghost" size="icon-sm" aria-label={`Edit ${initiative.name}`}>
+                        <Link to={`/initiatives/${initiative.id}/edit`}>
+                          <Pencil className="size-4" />
+                        </Link>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Delete ${initiative.name}`}
+                        onClick={() => {
+                          setDeleteError(null)
+                          setPendingDelete(initiative)
+                        }}
+                      >
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
+                    </div>
+                  )}
+                </MobileRow>
+              )
+            })}
+          </div>
           <TablePagination
             total={initiatives?.length ?? 0}
             page={page}
@@ -163,22 +236,29 @@ export default function MyInitiatives() {
 
       {!isLoading && !isError && (initiatives?.length ?? 0) > 0 && !canCreate && (
         <div className="overflow-hidden rounded-lg border border-border bg-card">
-          <Table>
+          <Table className="hidden lg:table">
             <TableHeader className="bg-muted/60">
               <TableRow>
+                <TableHead className="w-12 px-5">#</TableHead>
                 <TableHead className="px-5">Initiative</TableHead>
+                <TableHead className="px-5">Created By</TableHead>
                 <TableHead className="px-5">Type</TableHead>
                 <TableHead className="px-5">Budget</TableHead>
+                <TableHead className="px-5">Requested</TableHead>
+                <TableHead className="px-5">Approved</TableHead>
                 <TableHead className="px-5">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((initiative) => (
+              {rows.map((initiative, i) => (
                 <TableRow
                   key={initiative.id}
                   className="cursor-pointer"
                   onClick={() => navigate(`/initiatives/${initiative.id}`)}
                 >
+                  <TableCell className="px-5 py-3 tabular-nums text-muted-foreground">
+                    {(page - 1) * pageSize + i + 1}
+                  </TableCell>
                   <TableCell className="px-5 py-3">
                     <Link
                       to={`/initiatives/${initiative.id}`}
@@ -188,9 +268,18 @@ export default function MyInitiatives() {
                       {initiative.name}
                     </Link>
                   </TableCell>
+                  <TableCell className="px-5 py-3 text-muted-foreground">{initiative.owner.name}</TableCell>
                   <TableCell className="px-5 py-3 text-muted-foreground">{initiative.type ?? "—"}</TableCell>
                   <TableCell className="px-5 py-3 tabular-nums">
                     {formatMoney(initiative.estimated_total_budget, initiative.currency)}
+                  </TableCell>
+                  <TableCell
+                    className={`px-5 py-3 tabular-nums ${requestedIsOffBudget(initiative) ? "font-medium text-chip-warning-fg" : ""}`}
+                  >
+                    {formatMoney(initiative.total_requested_amount, initiative.currency)}
+                  </TableCell>
+                  <TableCell className="px-5 py-3 tabular-nums">
+                    {formatMoney(initiative.total_approved_amount, initiative.currency)}
                   </TableCell>
                   <TableCell className="px-5 py-3">
                     <InitiativeStatusBadge status={initiative.status} />
@@ -199,6 +288,32 @@ export default function MyInitiatives() {
               ))}
             </TableBody>
           </Table>
+          <div className="flex flex-col gap-3 p-3 lg:hidden">
+            {rows.map((initiative, i) => (
+              <MobileRow key={initiative.id} onClick={() => navigate(`/initiatives/${initiative.id}`)}>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground">#{(page - 1) * pageSize + i + 1}</span>
+                  <Link
+                    to={`/initiatives/${initiative.id}`}
+                    className="font-medium text-primary-text hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {initiative.name}
+                  </Link>
+                </div>
+                <MobileField label="Created By">{initiative.owner.name}</MobileField>
+                <MobileField label="Type">{initiative.type ?? "—"}</MobileField>
+                <MobileField label="Budget">{formatMoney(initiative.estimated_total_budget, initiative.currency)}</MobileField>
+                <MobileField label="Requested">
+                  <span className={requestedIsOffBudget(initiative) ? "font-medium text-chip-warning-fg" : undefined}>
+                    {formatMoney(initiative.total_requested_amount, initiative.currency)}
+                  </span>
+                </MobileField>
+                <MobileField label="Approved">{formatMoney(initiative.total_approved_amount, initiative.currency)}</MobileField>
+                <MobileField label="Status"><InitiativeStatusBadge status={initiative.status} /></MobileField>
+              </MobileRow>
+            ))}
+          </div>
           <div className="border-t border-border px-5 py-3">
             <TablePagination
               total={initiatives?.length ?? 0}

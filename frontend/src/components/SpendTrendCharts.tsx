@@ -52,7 +52,7 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
     return (
       <div className="mb-8">
         <h2 className="mb-3 text-lg font-bold">Spend Trends</h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-72 w-full bg-muted motion-safe:animate-pulse" />
           ))}
@@ -93,7 +93,7 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
   return (
     <div className="mb-8">
       <h2 className="mb-3 text-lg font-bold">Spend Trends</h2>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <ChartCard title="Monthly Spend Trend">
           {monthlyData.length === 0 ? (
             <EmptyChart />

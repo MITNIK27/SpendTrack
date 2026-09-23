@@ -32,11 +32,13 @@ export interface Category {
 }
 
 export type InitiativeStatus = "draft" | "active" | "closed" | "archived"
+export type InitiativeBudgetDecision = "approved" | "rejected"
 
 export interface Initiative {
   id: string
   name: string
   type: string | null
+  category: Category | null
   owner: UserRead
   event_date: string | null
   location: string | null
@@ -48,6 +50,21 @@ export interface Initiative {
   objective: string | null
   estimated_total_budget: string | null
   expected_leads_meetings: string | null
+
+  // The initiative's own budget decision — only ever meaningful when
+  // spend_request_count is 0 (no breakdown of its own; a breakdown is
+  // decided per-line instead).
+  budget_decision: InitiativeBudgetDecision | null
+  budget_approved_amount: string | null
+  budget_decided_at: string | null
+  budget_decision_comment: string | null
+  spend_request_count: number
+  /** Sum of every spend-breakdown request's requested_amount, or null when
+   * there's no breakdown at all yet. */
+  total_requested_amount: string | null
+  /** Sum of every spend-breakdown request's approved_amount (or the
+   * initiative's own approved budget, for a no-breakdown initiative). */
+  total_approved_amount: string
 
   created_at: string
 }
@@ -180,6 +197,10 @@ export interface SpendRequestReportRow {
   decided_at: string | null
   decided_by: string | null
   decision_comment: string | null
+  /** True when this row is an initiative's own budget (no breakdown of its
+   * own) rather than a real spend request — `id` is then the initiative's
+   * id, so links must go to the initiative, not a spend request. */
+  is_initiative_budget: boolean
 }
 
 export interface SpendSummaryFilters {

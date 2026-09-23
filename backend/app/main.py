@@ -4,7 +4,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import activity, admin, auth, categories, initiatives, reports, search, spend_requests, users
 from app.core.config import settings
 
-app = FastAPI(title="InfoBeans Marketing Spend Portal API")
+# Swagger UI / ReDoc / the raw OpenAPI schema expose the entire API surface
+# (every route, every request/response shape) to anyone who finds the URL —
+# fine for local dev, not for a publicly reachable production deployment.
+_docs_enabled = settings.env != "production"
+
+app = FastAPI(
+    title="InfoBeans Marketing Spend Portal API",
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
+)
 
 app.add_middleware(
     CORSMiddleware,

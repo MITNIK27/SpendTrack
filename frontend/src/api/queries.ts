@@ -49,9 +49,15 @@ export function useUpdateUser() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UserUpdateInput }) =>
       api.patch<UserRead>(`/admin/users/${id}`, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin", "users"] })
-      qc.invalidateQueries({ queryKey: ["users"] })
+    // Awaiting these (rather than firing-and-forgetting) keeps the mutation's
+    // own isPending true until the screen has actually caught up, not just
+    // until the write itself finished — otherwise a button can flip back to
+    // its normal label while the page still visibly reloads underneath it.
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["admin", "users"] }),
+        qc.invalidateQueries({ queryKey: ["users"] }),
+      ])
     },
   })
 }
@@ -80,9 +86,11 @@ export function useUpdateInitiative(id: string | undefined) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: Record<string, unknown>) => api.patch<Initiative>(`/initiatives/${id}`, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["initiatives"] })
-      qc.invalidateQueries({ queryKey: ["initiative", id] })
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["initiatives"] }),
+        qc.invalidateQueries({ queryKey: ["initiative", id] }),
+      ])
     },
   })
 }
@@ -92,10 +100,34 @@ export function useSubmitInitiative(id: string | undefined) {
   return useMutation({
     mutationFn: (spendRequestIds: string[]) =>
       api.post<InitiativeDetail>(`/initiatives/${id}/submit`, { spend_request_ids: spendRequestIds }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["initiatives"] })
-      qc.invalidateQueries({ queryKey: ["initiative", id] })
-      qc.invalidateQueries({ queryKey: ["spend-requests"] })
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["initiatives"] }),
+        qc.invalidateQueries({ queryKey: ["initiative", id] }),
+        qc.invalidateQueries({ queryKey: ["spend-requests"] }),
+      ])
+    },
+  })
+}
+
+export interface InitiativeBudgetDecisionInput {
+  action: "approve" | "reject"
+  comment?: string | null
+}
+
+/** Approves or rejects an initiative's own top-line budget — only ever
+ * applicable to one with zero spend-breakdown rows of its own; a breakdown
+ * is decided per-line via `useApproveBatch` instead. */
+export function useDecideInitiativeBudget(id: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: InitiativeBudgetDecisionInput) =>
+      api.post<InitiativeDetail>(`/initiatives/${id}/budget-decision`, data),
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["initiatives"] }),
+        qc.invalidateQueries({ queryKey: ["initiative", id] }),
+      ])
     },
   })
 }
@@ -107,10 +139,12 @@ export function useSubmitSpendRequestById(initiativeId?: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (spendRequestId: string) => api.post<SpendRequest>(`/spend-requests/${spendRequestId}/submit`),
-    onSuccess: (_data, spendRequestId) => {
-      qc.invalidateQueries({ queryKey: ["spend-request", spendRequestId] })
-      qc.invalidateQueries({ queryKey: ["spend-requests"] })
-      if (initiativeId) qc.invalidateQueries({ queryKey: ["initiative", initiativeId] })
+    onSuccess: async (_data, spendRequestId) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["spend-request", spendRequestId] }),
+        qc.invalidateQueries({ queryKey: ["spend-requests"] }),
+        ...(initiativeId ? [qc.invalidateQueries({ queryKey: ["initiative", initiativeId] })] : []),
+      ])
     },
   })
 }
@@ -129,14 +163,15 @@ export function useApproveBatch(initiativeId?: string) {
   return useMutation({
     mutationFn: (decisions: ApproveBatchDecision[]) =>
       api.post<SpendRequest[]>("/spend-requests/approve-batch", { decisions }),
-    onSuccess: (approved) => {
-      qc.invalidateQueries({ queryKey: ["initiatives"] })
-      qc.invalidateQueries({ queryKey: ["spend-requests"] })
-      for (const sr of approved) {
-        qc.invalidateQueries({ queryKey: ["spend-request", sr.id] })
-        qc.invalidateQueries({ queryKey: ["initiative", sr.initiative_id] })
-      }
-      if (initiativeId) qc.invalidateQueries({ queryKey: ["initiative", initiativeId] })
+    onSuccess: async (approved) => {
+      const initiativeIds = new Set(approved.map((sr) => sr.initiative_id))
+      if (initiativeId) initiativeIds.add(initiativeId)
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["initiatives"] }),
+        qc.invalidateQueries({ queryKey: ["spend-requests"] }),
+        ...approved.map((sr) => qc.invalidateQueries({ queryKey: ["spend-request", sr.id] })),
+        ...[...initiativeIds].map((id) => qc.invalidateQueries({ queryKey: ["initiative", id] })),
+      ])
     },
   })
 }
@@ -164,9 +199,11 @@ export function useCreateSpendRequest(initiativeId: string) {
   return useMutation({
     mutationFn: (data: Record<string, unknown>) =>
       api.post<SpendRequest>(`/initiatives/${initiativeId}/spend-requests`, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["initiative", initiativeId] })
-      qc.invalidateQueries({ queryKey: ["spend-requests"] })
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["initiative", initiativeId] }),
+        qc.invalidateQueries({ queryKey: ["spend-requests"] }),
+      ])
     },
   })
 }
@@ -175,9 +212,11 @@ export function useUpdateSpendRequest(id: string, initiativeId?: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: Record<string, unknown>) => api.patch<SpendRequest>(`/spend-requests/${id}`, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["spend-request", id] })
-      if (initiativeId) qc.invalidateQueries({ queryKey: ["initiative", initiativeId] })
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["spend-request", id] }),
+        ...(initiativeId ? [qc.invalidateQueries({ queryKey: ["initiative", initiativeId] })] : []),
+      ])
     },
   })
 }
@@ -186,10 +225,12 @@ export function useSubmitSpendRequest(id: string, initiativeId?: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: () => api.post<SpendRequest>(`/spend-requests/${id}/submit`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["spend-request", id] })
-      qc.invalidateQueries({ queryKey: ["spend-requests"] })
-      if (initiativeId) qc.invalidateQueries({ queryKey: ["initiative", initiativeId] })
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["spend-request", id] }),
+        qc.invalidateQueries({ queryKey: ["spend-requests"] }),
+        ...(initiativeId ? [qc.invalidateQueries({ queryKey: ["initiative", initiativeId] })] : []),
+      ])
     },
   })
 }
@@ -203,11 +244,13 @@ export function useRecordActualSpend(id: string, initiativeId?: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: ActualSpendInput) => api.post<SpendRequest>(`/spend-requests/${id}/actual`, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["spend-request", id] })
-      qc.invalidateQueries({ queryKey: ["spend-requests"] })
-      qc.invalidateQueries({ queryKey: ["activity", "spend-request", id] })
-      if (initiativeId) qc.invalidateQueries({ queryKey: ["initiative", initiativeId] })
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["spend-request", id] }),
+        qc.invalidateQueries({ queryKey: ["spend-requests"] }),
+        qc.invalidateQueries({ queryKey: ["activity", "spend-request", id] }),
+        ...(initiativeId ? [qc.invalidateQueries({ queryKey: ["initiative", initiativeId] })] : []),
+      ])
     },
   })
 }
