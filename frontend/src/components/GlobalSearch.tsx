@@ -4,7 +4,6 @@ import { Search } from "lucide-react"
 import { cn } from "cn"
 import { Input } from "@/components/ui/input"
 import { StatusBadge } from "@/components/StatusBadge"
-import { InitiativeStatusBadge } from "@/components/InitiativeStatusBadge"
 import { formatMoney } from "@/lib/money"
 import { useGlobalSearch } from "@/api/queries"
 
@@ -92,7 +91,7 @@ export function GlobalSearch({ autoFocus, onNavigate, className }: Props = {}) {
                   className="flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-secondary/50"
                 >
                   <span className="font-medium">{i.name}</span>
-                  <InitiativeStatusBadge status={i.status} />
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">{i.status}</span>
                 </button>
               ))}
             </div>

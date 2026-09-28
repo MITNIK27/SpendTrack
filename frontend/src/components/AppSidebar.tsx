@@ -2,6 +2,7 @@ import { Link, NavLink } from "react-router-dom"
 import { LayoutDashboard, ClipboardCheck, ShieldCheck, FolderKanban, Users } from "lucide-react"
 import { BrandLockup } from "@/components/BrandLockup"
 import { landingPathForRole } from "@/auth/roleRouting"
+import { APP_VERSION } from "@/lib/app-meta"
 import { cn } from "@/lib/utils"
 
 interface NavItem {
@@ -78,33 +79,53 @@ export function AppSidebar({
           <BrandLockup on="dark" />
         </div>
       </Link>
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        {groups.map((g) => (
-          <div key={g.title || g.items[0]?.to} className="mb-6">
+      <nav className="flex-1 overflow-y-auto px-3 py-5">
+        {groups.map((g, i) => (
+          <div
+            key={g.title || g.items[0]?.to}
+            className={cn("mb-6", i > 0 && "border-t border-white/8 pt-6")}
+          >
             {g.title && (
-              <h4 className="px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-white/45">
+              <h4 className="px-3 pb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/40">
                 {g.title}
               </h4>
             )}
-            {g.items.map((it) => (
-              <NavLink
-                key={it.to}
-                to={it.to}
-                end={it.end}
-                onClick={onNavigate}
-                className={({ isActive }) => cn(
-                  "flex w-full items-center gap-3 px-4 py-3 text-base text-white/80 transition-colors duration-200",
-                  "hover:bg-white/6 hover:text-white",
-                  isActive && "bg-primary/25 text-white font-semibold",
-                )}
-              >
-                <it.icon className="size-4 opacity-85" />
-                <span>{it.label}</span>
-              </NavLink>
-            ))}
+            <div className="flex flex-col gap-0.5">
+              {g.items.map((it) => (
+                <NavLink
+                  key={it.to}
+                  to={it.to}
+                  end={it.end}
+                  onClick={onNavigate}
+                  className={({ isActive }) => cn(
+                    "group relative flex w-full items-center gap-3 border-l-2 border-transparent py-2.5 pl-3.5 pr-4 text-[0.9rem] text-white/75 transition-all duration-200",
+                    "hover:border-white/20 hover:bg-white/6 hover:text-white",
+                    isActive && "border-primary bg-white/10 font-semibold text-white",
+                  )}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span
+                        className={cn(
+                          "grid size-7 shrink-0 place-items-center bg-white/8 text-white/70 transition-colors duration-200",
+                          "group-hover:text-white",
+                          isActive && "bg-primary text-white",
+                        )}
+                      >
+                        <it.icon className="size-4" />
+                      </span>
+                      <span>{it.label}</span>
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </div>
           </div>
         ))}
       </nav>
+      <div className="border-t border-white/10 px-4 py-3 text-[11px] text-white/35">
+        Version {APP_VERSION}
+      </div>
     </aside>
   )
 }

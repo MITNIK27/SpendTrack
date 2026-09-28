@@ -67,31 +67,65 @@ class Initiative(Base):
     team_members: Mapped[list["User"]] = relationship(secondary=initiative_team_members)  # noqa: F821
 
     @property
+    def _submitted_spend_requests(self) -> list["SpendRequest"]:  # noqa: F821
+        """Every spend request under this initiative that has actually left
+        draft — a draft is a private scratchpad, never counted toward "does
+        this initiative have a breakdown" anywhere else in the app (report
+        totals, has_submitted_spend, visibility filtering), so these four
+        properties must agree, or a leftover/abandoned draft silently blocks
+        the initiative's own budget-decision flow (decide_budget) while also
+        hiding the fact that there's nothing left for an approver to act on."""
+        return [sr for sr in self.spend_requests if sr.status != "draft"]
+
+    @property
     def spend_request_count(self) -> int:
-        return len(self.spend_requests)
+        return len(self._submitted_spend_requests)
+
+    @property
+    def approval_progress(self) -> str | None:
+        """"not_started" | "partial" | "approved" | "rejected" across this initiative's
+        spend-breakdown rows, or None when there's no breakdown to judge (a budget-only
+        initiative keeps using budget_decision instead — this is purely a display signal,
+        never stored)."""
+        submitted = self._submitted_spend_requests
+        if not submitted:
+            return None
+        total = len(submitted)
+        approved = sum(1 for sr in submitted if sr.status in ("approved", "spent", "closed"))
+        rejected = sum(1 for sr in submitted if sr.status == "rejected")
+        if approved == total:
+            return "approved"
+        if rejected == total:
+            return "rejected"
+        if approved == 0 and rejected == 0:
+            return "not_started"
+        return "partial"
 
     @property
     def total_requested_amount(self) -> Decimal | None:
-        """Sum of every spend request's requested_amount, or None when there's
-        no breakdown at all yet — lets a caller tell "nothing requested" apart
-        from "zero requested". Mirrors spend_request_count's simplification of
-        summing over every spend request rather than only the ones visible to
-        a particular viewer (that filtering only happens on the detail
-        endpoint, where the full objects are already loaded per-request)."""
-        if not self.spend_requests:
+        """Sum of every submitted spend request's requested_amount, or None
+        when there's no breakdown at all yet — lets a caller tell "nothing
+        requested" apart from "zero requested". Mirrors spend_request_count's
+        simplification of summing over every spend request rather than only
+        the ones visible to a particular viewer (that filtering only happens
+        on the detail endpoint, where the full objects are already loaded
+        per-request)."""
+        submitted = self._submitted_spend_requests
+        if not submitted:
             return None
-        return sum((sr.requested_amount for sr in self.spend_requests), start=Decimal("0"))
+        return sum((sr.requested_amount for sr in submitted), start=Decimal("0"))
 
     @property
     def total_approved_amount(self) -> Decimal:
-        """Sum of every spend request's approved_amount (skipping any not yet
-        decided), or — for an initiative with no breakdown of its own — its
-        own approved budget, if its budget has been approved. Mirrors the
-        same fallback `_financial_summary` uses on the detail endpoint, so
-        this always lines up with what that page shows."""
-        if self.spend_requests:
+        """Sum of every submitted spend request's approved_amount (skipping
+        any not yet decided), or — for an initiative with no breakdown of its
+        own — its own approved budget, if its budget has been approved.
+        Mirrors the same fallback `_financial_summary` uses on the detail
+        endpoint, so this always lines up with what that page shows."""
+        submitted = self._submitted_spend_requests
+        if submitted:
             return sum(
-                (sr.approved_amount for sr in self.spend_requests if sr.approved_amount is not None),
+                (sr.approved_amount for sr in submitted if sr.approved_amount is not None),
                 start=Decimal("0"),
             )
         if self.budget_decision == "approved" and self.budget_approved_amount is not None:

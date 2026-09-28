@@ -59,6 +59,10 @@ export interface Initiative {
   budget_decided_at: string | null
   budget_decision_comment: string | null
   spend_request_count: number
+  /** Rollup across this initiative's spend-breakdown rows — null when
+   * there's no breakdown yet (a budget-only initiative uses budget_decision
+   * instead). */
+  approval_progress: "not_started" | "partial" | "approved" | "rejected" | null
   /** Sum of every spend-breakdown request's requested_amount, or null when
    * there's no breakdown at all yet. */
   total_requested_amount: string | null
@@ -133,6 +137,11 @@ export interface SpendRequest {
 /** Statuses awaiting an approver decision — used to build the pending-approvals view. */
 export const PENDING_DECISION_STATUSES: SpendRequestStatus[] = ["submitted", "under_review", "resubmitted"]
 
+/** Statuses whose financial details can still be edited — mirrors the backend's own
+ * EDITABLE_STATUSES (backend/app/models/spend_request.py), which 409s a PATCH outside
+ * these two. Everything else is shown read-only. */
+export const EDITABLE_SPEND_STATUSES: SpendRequestStatus[] = ["draft", "changes_requested"]
+
 export interface SpendSummaryKPIs {
   fy_spend_approved: string
   fy_spend_actual: string
@@ -151,6 +160,13 @@ export interface CategoryBreakdownRow {
 export interface SpendSummaryResponse {
   fiscal_year: number | null // null means "all time" (all_time filter was set)
   matched_spend_request_count: number
+  /** Every amount above has already been converted to this currency —
+   * fx_rate_is_stale is true when the rate didn't come from a fetch that
+   * succeeded just now (the FX API was unreachable). */
+  display_currency: "INR" | "USD"
+  fx_rate_usd_inr: string
+  fx_rate_as_of: string
+  fx_rate_is_stale: boolean
   kpis: SpendSummaryKPIs
   by_category: CategoryBreakdownRow[]
 }
@@ -177,6 +193,10 @@ export interface CategoryAverageRow {
 
 export interface SpendTrendsResponse {
   fiscal_year: number | null
+  display_currency: "INR" | "USD"
+  fx_rate_usd_inr: string
+  fx_rate_as_of: string
+  fx_rate_is_stale: boolean
   monthly: MonthlyTrendPoint[]
   quarterly: QuarterlyTrendPoint[]
   category_monthly_average: CategoryAverageRow[]
@@ -214,6 +234,9 @@ export interface SpendSummaryFilters {
   status_filter?: string
   /** Bypasses fiscal-year scoping entirely — "all time" / past approvals regardless of period. */
   all_time?: boolean
+  /** Every matched amount is converted to this currency before being summed
+   * server-side — defaults to INR when omitted. */
+  display_currency?: "INR" | "USD"
 }
 
 export interface SearchInitiativeResult {

@@ -57,6 +57,7 @@ export default function Dashboard() {
   const [categoryId, setCategoryId] = useState("")
   const [requesterId, setRequesterId] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
+  const [displayCurrency, setDisplayCurrency] = useState<"INR" | "USD">("INR")
 
   const [drilldown, setDrilldown] = useState<{ title: string; categoryId?: string } | null>(null)
 
@@ -80,8 +81,9 @@ export default function Dashboard() {
       category_id: categoryId || undefined,
       requester_id: requesterId || undefined,
       status_filter: statusFilter || undefined,
+      display_currency: displayCurrency,
     }),
-    [isAllTime, fiscalYear, quarter, month, categoryId, requesterId, statusFilter],
+    [isAllTime, fiscalYear, quarter, month, categoryId, requesterId, statusFilter, displayCurrency],
   )
 
   const { data, isLoading, isError } = useSpendSummary(filters)
@@ -168,116 +170,131 @@ export default function Dashboard() {
       )}
 
       {data && (
-        <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-          <KpiTile
-            label={`${periodLabel} Approved`}
-            value={formatMoney(data.kpis.fy_spend_approved)}
-            onClick={() => setDrilldown({ title: `${periodLabel} Approved — matching spend requests` })}
-          />
-          <KpiTile
-            label={`${periodLabel} Actual`}
-            value={formatMoney(data.kpis.fy_spend_actual)}
-            onClick={() => setDrilldown({ title: `${periodLabel} Actual — matching spend requests` })}
-          />
-          <KpiTile
-            className="col-span-2 sm:col-span-1"
-            label={`${periodLabel} Available`}
-            value={formatMoney(data.kpis.fy_spend_available)}
-            onClick={() => setDrilldown({ title: `${periodLabel} Available — matching spend requests` })}
-          />
+        <div className="mb-8">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+            <KpiTile
+              label={`${periodLabel} Approved`}
+              value={formatMoney(data.kpis.fy_spend_approved, data.display_currency)}
+              onClick={() => setDrilldown({ title: `${periodLabel} Approved — matching spend requests` })}
+            />
+            <KpiTile
+              label={`${periodLabel} Actual`}
+              value={formatMoney(data.kpis.fy_spend_actual, data.display_currency)}
+              onClick={() => setDrilldown({ title: `${periodLabel} Actual — matching spend requests` })}
+            />
+            <KpiTile
+              className="col-span-2 sm:col-span-1"
+              label={`${periodLabel} Available`}
+              value={formatMoney(data.kpis.fy_spend_available, data.display_currency)}
+              onClick={() => setDrilldown({ title: `${periodLabel} Available — matching spend requests` })}
+            />
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Converted at 1 USD = ₹{data.fx_rate_usd_inr} (as of {data.fx_rate_as_of})
+            {data.fx_rate_is_stale && " — rate may be outdated, couldn't reach the live FX source"}
+          </p>
         </div>
       )}
 
-      <div className="mb-8 flex flex-col gap-3 border-y border-border py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
-        <div className="grid grid-cols-2 gap-2 sm:contents">
-          <Select value={fiscalYear} onValueChange={setFiscalYear}>
-            <SelectTrigger className="h-8 w-full gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none sm:w-auto">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="!max-h-40" align="start">
-              <SelectItem value={ALL_TIME}>All Time (past approvals)</SelectItem>
-              {fiscalYearOptions().map((y) => (
-                <SelectItem key={y} value={String(y)}>{fyLabel(y)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="mb-8 flex items-center gap-2 overflow-x-auto border-y border-border py-3">
+        <Select value={fiscalYear} onValueChange={setFiscalYear}>
+          <SelectTrigger className="h-8 shrink-0 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="!max-h-40" align="start">
+            <SelectItem value={ALL_TIME}>All Time (past approvals)</SelectItem>
+            {fiscalYearOptions().map((y) => (
+              <SelectItem key={y} value={String(y)}>{fyLabel(y)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-          <Select value={quarter || ALL} onValueChange={(v) => setQuarter(v === ALL ? "" : v)}>
-            <SelectTrigger className="h-8 w-full gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none sm:w-auto">
-              <SelectValue placeholder="All Quarters" />
-            </SelectTrigger>
-            <SelectContent className="!max-h-40" align="start">
-              <SelectItem value={ALL}>All Quarters</SelectItem>
-              {QUARTERS.map((q) => (
-                <SelectItem key={q.value} value={q.value}>{q.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <Select value={quarter || ALL} onValueChange={(v) => setQuarter(v === ALL ? "" : v)}>
+          <SelectTrigger className="h-8 shrink-0 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none">
+            <SelectValue placeholder="All Quarters" />
+          </SelectTrigger>
+          <SelectContent className="!max-h-40" align="start">
+            <SelectItem value={ALL}>All Quarters</SelectItem>
+            {QUARTERS.map((q) => (
+              <SelectItem key={q.value} value={q.value}>{q.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-          <Select value={month || ALL} onValueChange={(v) => setMonth(v === ALL ? "" : v)}>
-            <SelectTrigger className="h-8 w-full gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none sm:w-auto">
-              <SelectValue placeholder="All Months" />
-            </SelectTrigger>
-            <SelectContent className="!max-h-40" align="start">
-              <SelectItem value={ALL}>All Months</SelectItem>
-              {MONTHS.map((m, i) => (
-                <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <Select value={month || ALL} onValueChange={(v) => setMonth(v === ALL ? "" : v)}>
+          <SelectTrigger className="h-8 shrink-0 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none">
+            <SelectValue placeholder="All Months" />
+          </SelectTrigger>
+          <SelectContent className="!max-h-40" align="start">
+            <SelectItem value={ALL}>All Months</SelectItem>
+            {MONTHS.map((m, i) => (
+              <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-          <Select value={categoryId || ALL} onValueChange={(v) => setCategoryId(v === ALL ? "" : v)}>
-            <SelectTrigger className="h-8 w-full gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none sm:w-auto">
-              <SelectValue placeholder="All Categories" />
-            </SelectTrigger>
-            <SelectContent className="!max-h-40" align="start">
-              <SelectItem value={ALL}>All Categories</SelectItem>
-              {categories?.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.code}. {c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <Select value={categoryId || ALL} onValueChange={(v) => setCategoryId(v === ALL ? "" : v)}>
+          <SelectTrigger className="h-8 shrink-0 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none">
+            <SelectValue placeholder="All Categories" />
+          </SelectTrigger>
+          <SelectContent className="!max-h-40" align="start">
+            <SelectItem value={ALL}>All Categories</SelectItem>
+            {categories?.map((c) => (
+              <SelectItem key={c.id} value={c.id}>{c.code}. {c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-          <Select value={statusFilter || ALL} onValueChange={(v) => setStatusFilter(v === ALL ? "" : v)}>
-            <SelectTrigger className="h-8 w-full gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none sm:w-auto">
-              <SelectValue placeholder="All Statuses" />
-            </SelectTrigger>
-            <SelectContent className="!max-h-40" align="start">
-              <SelectItem value={ALL}>All Statuses</SelectItem>
-              {STATUS_OPTIONS.map((s) => (
-                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <Select value={statusFilter || ALL} onValueChange={(v) => setStatusFilter(v === ALL ? "" : v)}>
+          <SelectTrigger className="h-8 shrink-0 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none">
+            <SelectValue placeholder="All Statuses" />
+          </SelectTrigger>
+          <SelectContent className="!max-h-40" align="start">
+            <SelectItem value={ALL}>All Statuses</SelectItem>
+            {STATUS_OPTIONS.map((s) => (
+              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-          <div className="sm:w-48">
-            <RequesterCombobox value={requesterId} onChange={setRequesterId} />
-          </div>
+        <div className="w-40 shrink-0">
+          <RequesterCombobox value={requesterId} onChange={setRequesterId} />
         </div>
 
-        <div className="flex items-center gap-2 sm:contents">
-          {isFiltered && (
-            <Button variant="ghost" size="sm" onClick={resetFilters} className="h-8 text-xs text-muted-foreground">
-              <RotateCcw className="size-3.5" /> Clear
+        <Select value={displayCurrency} onValueChange={(v) => setDisplayCurrency(v as "INR" | "USD")}>
+          <SelectTrigger
+            aria-label="Display currency"
+            className="h-8 shrink-0 gap-1 rounded-md border-border bg-card px-2 text-xs font-medium shadow-none"
+          >
+            <SelectValue>{displayCurrency}</SelectValue>
+          </SelectTrigger>
+          <SelectContent align="start" className="min-w-[110px]">
+            <SelectItem value="INR">₹ INR</SelectItem>
+            <SelectItem value="USD">$ USD</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {isFiltered && (
+          <Button variant="ghost" size="sm" onClick={resetFilters} className="h-8 shrink-0 text-xs text-muted-foreground">
+            <RotateCcw className="size-3.5" /> Clear
+          </Button>
+        )}
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="ml-auto h-8 shrink-0 text-xs">
+              <Download className="size-3.5" /> Export <ChevronDown className="size-3.5" />
             </Button>
-          )}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="ml-auto h-8 text-xs">
-                <Download className="size-3.5" /> Export <ChevronDown className="size-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem className="text-xs" onClick={() => exportCsv("spend-summary")}>
-                Category Summary (CSV)
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-xs" onClick={() => exportCsv("spend-requests")}>
-                Spend Requests (CSV)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuItem className="text-xs" onClick={() => exportCsv("spend-summary")}>
+              Category Summary (CSV)
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-xs" onClick={() => exportCsv("spend-requests")}>
+              Spend Requests (CSV)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {data && (
@@ -314,9 +331,9 @@ export default function Dashboard() {
                       }
                     >
                       <TableCell>{row.category_code}. {row.category_name}</TableCell>
-                      <TableCell className="tabular-nums">{formatMoney(row.approved)}</TableCell>
-                      <TableCell className="tabular-nums">{formatMoney(row.actual)}</TableCell>
-                      <TableCell className="tabular-nums">{formatMoney(row.balance)}</TableCell>
+                      <TableCell className="tabular-nums">{formatMoney(row.approved, data.display_currency)}</TableCell>
+                      <TableCell className="tabular-nums">{formatMoney(row.actual, data.display_currency)}</TableCell>
+                      <TableCell className="tabular-nums">{formatMoney(row.balance, data.display_currency)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -334,9 +351,9 @@ export default function Dashboard() {
                     }
                   >
                     <div className="font-medium">{row.category_code}. {row.category_name}</div>
-                    <MobileField label="Approved">{formatMoney(row.approved)}</MobileField>
-                    <MobileField label="Actual">{formatMoney(row.actual)}</MobileField>
-                    <MobileField label="Balance">{formatMoney(row.balance)}</MobileField>
+                    <MobileField label="Approved">{formatMoney(row.approved, data.display_currency)}</MobileField>
+                    <MobileField label="Actual">{formatMoney(row.actual, data.display_currency)}</MobileField>
+                    <MobileField label="Balance">{formatMoney(row.balance, data.display_currency)}</MobileField>
                   </MobileRow>
                 ))}
               </div>

@@ -97,7 +97,7 @@ TAXONOMY: list[tuple[str, str, list[str]]] = [
         "Internal campaigns", "Employer branding", "Internal events", "Employee advocacy",
         "Internal promotional material", "Recruitment marketing",
     ]),
-    ("Q", "Other", []),
+    ("Q", "Others", []),
 ]
 
 categories_table = sa.table(

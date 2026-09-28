@@ -13,6 +13,9 @@ backend/.pytest_cache/
 backend/tests/
 backend/firebase-service-account.json
 backend/backup_*.sql
+# Deployment packaging output (produced on demand by robocopy, not source —
+# see the deployment workflow) — mirrors /backend-deploy.zip below.
+backend/dist/
 
 # Frontend
 frontend/node_modules/
@@ -25,6 +28,9 @@ frontend/.env*
 
 # Claude Code local session state (not shared project config)
 .claude/*.lock
+
+# Internal meeting transcripts/notes — not project source, never shared
+meeting-notes/
 
 # General
 .DS_Store

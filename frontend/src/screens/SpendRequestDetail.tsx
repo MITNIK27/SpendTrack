@@ -73,10 +73,12 @@ export default function SpendRequestDetail() {
         <StatusBadge status={sr.status} />
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className={`mb-6 grid grid-cols-1 gap-3 ${sr.actual_amount !== null ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         <SummaryTile label="Requested" value={formatMoney(sr.requested_amount, sr.currency)} />
         <SummaryTile label="Approved" value={formatMoney(sr.approved_amount, sr.currency)} />
-        <SummaryTile label="Actual" value={formatMoney(sr.actual_amount, sr.currency)} />
+        {sr.actual_amount !== null && (
+          <SummaryTile label="Actual" value={formatMoney(sr.actual_amount, sr.currency)} />
+        )}
       </div>
 
       {variance !== null && variance !== 0 && (

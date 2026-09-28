@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input"
 import { formatMoney } from "@/lib/money"
 import { useDecideInitiativeBudget } from "@/api/queries"
 import { ApiError } from "@/api/client"
+import { VoiceInputButton } from "@/components/VoiceInputButton"
+import { ClearFieldButton } from "@/components/ClearFieldButton"
 import type { Initiative } from "@/types/domain"
 
 /** True only for an initiative that's actually awaiting its own budget
@@ -32,7 +34,16 @@ export function useInitiativeBudgetDecision(initiativeId: string | undefined) {
     }
   }
 
-  return { remark, setRemark, approve: () => act("approve"), reject: () => act("reject"), isPending: decide.isPending }
+  const appendRemark = (spoken: string) => setRemark((prev) => [prev, spoken].filter(Boolean).join(" "))
+
+  return {
+    remark,
+    setRemark,
+    appendRemark,
+    approve: () => act("approve"),
+    reject: () => act("reject"),
+    isPending: decide.isPending,
+  }
 }
 
 interface Props {
@@ -77,6 +88,16 @@ export function InitiativeBudgetDecisionCard({ initiative, state, compact }: Pro
           aria-label="Remark"
           className="bg-card"
         />
+        <VoiceInputButton
+          ariaLabel={`Speak remark for ${initiative.name}`}
+          onTranscript={state.appendRemark}
+        />
+        {!!state.remark && (
+          <ClearFieldButton
+            ariaLabel={`Clear remark for ${initiative.name}`}
+            onClear={() => state.setRemark("")}
+          />
+        )}
         <div className="flex gap-2">
           <Button onClick={state.approve} disabled={state.isPending}>
             {state.isPending ? "Saving…" : "Approve"}

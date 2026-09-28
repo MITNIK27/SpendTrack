@@ -62,8 +62,18 @@ export function useUpdateUser() {
   })
 }
 
+// Polled so a decision one approver makes shows up for another approver with
+// their tab already open, not just on their next window focus/navigation —
+// there's no push/websocket layer in this app, so a short poll is the
+// pragmatic way to keep the approval queue from ever looking stale.
+const APPROVAL_SYNC_POLL_MS = 30_000
+
 export function useInitiatives() {
-  return useQuery<Initiative[]>({ queryKey: ["initiatives"], queryFn: () => api.get<Initiative[]>("/initiatives") })
+  return useQuery<Initiative[]>({
+    queryKey: ["initiatives"],
+    queryFn: () => api.get<Initiative[]>("/initiatives"),
+    refetchInterval: APPROVAL_SYNC_POLL_MS,
+  })
 }
 
 export function useInitiative(id: string | undefined) {
@@ -71,6 +81,7 @@ export function useInitiative(id: string | undefined) {
     queryKey: ["initiative", id],
     queryFn: () => api.get<InitiativeDetail>(`/initiatives/${id}`),
     enabled: !!id,
+    refetchInterval: APPROVAL_SYNC_POLL_MS,
   })
 }
 
@@ -151,6 +162,9 @@ export function useSubmitSpendRequestById(initiativeId?: string) {
 
 export interface ApproveBatchDecision {
   spend_request_id: string
+  /** Only set when the approver overrode the requested amount — omitted
+   * approves the requested amount as-is. */
+  approved_amount?: number
   comment?: string
 }
 
@@ -171,6 +185,34 @@ export function useApproveBatch(initiativeId?: string) {
         qc.invalidateQueries({ queryKey: ["spend-requests"] }),
         ...approved.map((sr) => qc.invalidateQueries({ queryKey: ["spend-request", sr.id] })),
         ...[...initiativeIds].map((id) => qc.invalidateQueries({ queryKey: ["initiative", id] })),
+      ])
+    },
+  })
+}
+
+export interface RejectSpendRequestInput {
+  spendRequestId: string
+  /** Required — the backend 400s a reject without a non-blank comment. */
+  comment: string
+}
+
+/** Rejects a single spend request with a required comment — the per-row
+ * Reject action next to the batch checklist's Approve button. There's no
+ * batch-reject endpoint, so a multi-row reject calls this once per row. */
+export function useRejectSpendRequest(initiativeId?: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ spendRequestId, comment }: RejectSpendRequestInput) =>
+      api.post<SpendRequest>(`/spend-requests/${spendRequestId}/decisions`, { action: "reject", comment }),
+    onSuccess: async (rejected) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["initiatives"] }),
+        qc.invalidateQueries({ queryKey: ["spend-requests"] }),
+        qc.invalidateQueries({ queryKey: ["spend-request", rejected.id] }),
+        qc.invalidateQueries({ queryKey: ["initiative", rejected.initiative_id] }),
+        ...(initiativeId && initiativeId !== rejected.initiative_id
+          ? [qc.invalidateQueries({ queryKey: ["initiative", initiativeId] })]
+          : []),
       ])
     },
   })
@@ -259,6 +301,7 @@ export function useSpendRequests() {
   return useQuery<SpendRequest[]>({
     queryKey: ["spend-requests"],
     queryFn: () => api.get<SpendRequest[]>("/spend-requests"),
+    refetchInterval: APPROVAL_SYNC_POLL_MS,
   })
 }
 

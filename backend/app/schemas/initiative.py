@@ -82,6 +82,7 @@ class InitiativeRead(BaseModel):
     budget_decided_at: datetime | None
     budget_decision_comment: str | None
     spend_request_count: int
+    approval_progress: str | None
     total_requested_amount: Decimal | None
     total_approved_amount: Decimal
 

@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 from typing import Sequence
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy.orm.interfaces import LoaderOption
@@ -25,7 +25,9 @@ from app.schemas.initiative import (
 )
 from app.services import (
     activity_log_service,
+    email_service,
     initiative_service,
+    notification_service,
     spend_request_service,
     team_members_service,
 )
@@ -142,6 +144,7 @@ def create_initiative(
 @router.post("/{initiative_id}/submit", response_model=InitiativeDetail)
 def submit_initiative(
     initiative_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     payload: InitiativeSubmitInput = InitiativeSubmitInput(),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -170,12 +173,23 @@ def submit_initiative(
     # bundle along with the initiative. Anything left unchecked stays a draft,
     # submittable later on its own (once this initiative is no longer a draft).
     draft_by_id = {sr.id: sr for sr in initiative.spend_requests if sr.status == "draft"}
+    submitted_spend_requests = []
     for sr_id in payload.spend_request_ids:
         spend_request = draft_by_id.get(sr_id)
         if spend_request is not None:
             spend_request_service.submit(db, spend_request=spend_request, actor=user)
+            submitted_spend_requests.append(spend_request)
 
     db.commit()
+
+    to, subject, html = notification_service.build_initiative_submitted_email(db, initiative=initiative, actor=user)
+    background_tasks.add_task(email_service.send_email, to, subject, html)
+    for spend_request in submitted_spend_requests:
+        to, subject, html = notification_service.build_spend_request_submitted_email(
+            db, spend_request=spend_request, initiative=initiative, actor=user
+        )
+        background_tasks.add_task(email_service.send_email, to, subject, html)
+
     initiative = _reload_initiative(db, initiative.id, INITIATIVE_DETAIL_EAGER_LOAD)
     visible_spend_requests = _visible_spend_requests(initiative, user)
     return InitiativeDetail(
@@ -189,12 +203,20 @@ def submit_initiative(
 def decide_initiative_budget(
     initiative_id: uuid.UUID,
     payload: InitiativeBudgetDecisionInput,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("approver", "admin")),
 ) -> Initiative:
     initiative = _get_owned_or_visible(db, initiative_id, user, options=INITIATIVE_DETAIL_EAGER_LOAD)
     initiative_service.decide_budget(db, initiative=initiative, approver=user, action=payload.action, comment=payload.comment)
     db.commit()
+
+    email_payload = notification_service.build_initiative_decision_email(
+        db, initiative=initiative, decision=initiative.budget_decision, approver=user, comment=payload.comment
+    )
+    if email_payload is not None:
+        background_tasks.add_task(email_service.send_email, *email_payload)
+
     initiative = _reload_initiative(db, initiative.id, INITIATIVE_DETAIL_EAGER_LOAD)
     visible_spend_requests = _visible_spend_requests(initiative, user)
     return InitiativeDetail(

@@ -1,17 +1,36 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { FolderPlus, Pencil, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, FolderPlus, ListFilter, Pencil, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { MobileRow, MobileField } from "@/components/ui/mobile-card-row"
 import { TablePagination, PAGE_SIZES } from "@/components/TablePagination"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { InitiativeStatusBadge } from "@/components/InitiativeStatusBadge"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { FilterableColumnHead } from "@/components/FilterableColumnHead"
+import { SortableColumnHead } from "@/components/SortableColumnHead"
+import { InitiativeStatusBadge, deriveOutcome, OUTCOME_DOT_CLASS, OUTCOME_LABELS, type InitiativeOutcome } from "@/components/InitiativeStatusBadge"
 import { useAuth } from "@/auth/AuthContext"
 import { useDeleteInitiative, useInitiatives } from "@/api/queries"
 import { ApiError } from "@/api/client"
 import { formatMoney } from "@/lib/money"
 import type { Initiative } from "@/types/domain"
+
+/** "date" is the default/reset state (latest first, matches the backend's
+ * own default ordering) — clicking the Initiative column header cycles
+ * date → name-asc → name-desc → date, same 3-state convention as a
+ * Notion/Airtable column sort toggle. */
+type SortBy = "date" | "name-asc" | "name-desc"
+
+const NEXT_SORT: Record<SortBy, SortBy> = { date: "name-asc", "name-asc": "name-desc", "name-desc": "date" }
+
+const OUTCOME_OPTIONS: InitiativeOutcome[] = ["draft", "active", "partial", "approved", "rejected"]
 
 /** True once there's an actual breakdown whose total doesn't match the
  * original budget — the Requested cell is highlighted in that case so the
@@ -35,8 +54,40 @@ export default function MyInitiatives() {
   const [pageSize, setPageSize] = useState(PAGE_SIZES[1])
   const [pendingDelete, setPendingDelete] = useState<Initiative | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState<SortBy>("date")
+  const [statusFilter, setStatusFilter] = useState<InitiativeOutcome | "all">("all")
 
-  const rows = (initiatives ?? []).slice((page - 1) * pageSize, page * pageSize)
+  const filteredSorted = (initiatives ?? [])
+    .filter((i) => statusFilter === "all" || deriveOutcome(i) === statusFilter)
+    .sort((a, b) => {
+      if (sortBy === "date") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      const cmp = a.name.localeCompare(b.name)
+      return sortBy === "name-asc" ? cmp : -cmp
+    })
+  const rows = filteredSorted.slice((page - 1) * pageSize, page * pageSize)
+
+  // Counts always reflect the full unfiltered list, not the current filter —
+  // same convention as GitHub/Linear's issue-tab counts, so switching pills
+  // never makes another pill's own count look like it changed.
+  const outcomeCounts = new Map<InitiativeOutcome, number>()
+  for (const i of initiatives ?? []) {
+    const o = deriveOutcome(i)
+    outcomeCounts.set(o, (outcomeCounts.get(o) ?? 0) + 1)
+  }
+  const filterTabOptions = [
+    { value: "all" as const, label: "All", count: (initiatives ?? []).length, dotClassName: undefined as string | undefined },
+    ...OUTCOME_OPTIONS.map((o) => ({
+      value: o,
+      label: OUTCOME_LABELS[o],
+      count: outcomeCounts.get(o) ?? 0,
+      dotClassName: OUTCOME_DOT_CLASS[o],
+    })),
+  ]
+
+  const changeSortBy = (v: SortBy) => { setSortBy(v); setPage(1) }
+  const cycleSortBy = () => changeSortBy(NEXT_SORT[sortBy])
+  const nameSortDirection = sortBy === "name-asc" ? "asc" : sortBy === "name-desc" ? "desc" : null
+  const changeStatusFilter = (v: InitiativeOutcome | "all") => { setStatusFilter(v); setPage(1) }
 
   const closeDeleteDialog = () => {
     setPendingDelete(null)
@@ -110,18 +161,66 @@ export default function MyInitiatives() {
         </div>
       )}
 
+      {!isLoading && !isError && (initiatives?.length ?? 0) > 0 && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          {/* Desktop filters by clicking the Status column header itself
+             (below) — this mobile-only trigger covers the card view, which
+             has no column headers to click. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-1.5 bg-card text-muted-foreground lg:hidden">
+                <ListFilter className="size-3.5" />
+                {statusFilter === "all" ? "Status" : OUTCOME_LABELS[statusFilter]}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[220px]">
+              <DropdownMenuRadioGroup value={statusFilter} onValueChange={(v) => changeStatusFilter(v as InitiativeOutcome | "all")}>
+                {filterTabOptions.map((o) => (
+                  <DropdownMenuRadioItem key={o.value} value={o.value} className="justify-between gap-6 py-1.5">
+                    <span className="flex items-center gap-2">
+                      <span className={`size-1.5 shrink-0 rounded-full ${o.dotClassName ?? "bg-muted-foreground"}`} />
+                      {o.label}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">{o.count}</span>
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {/* Desktop sorts by clicking the Initiative column header itself
+             (below) — this mobile-only button covers the card view. */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto h-8 gap-1.5 bg-card text-muted-foreground lg:hidden"
+            onClick={cycleSortBy}
+          >
+            {nameSortDirection === "asc" && <ArrowUp className="size-3.5" />}
+            {nameSortDirection === "desc" && <ArrowDown className="size-3.5" />}
+            {!nameSortDirection && <ArrowUpDown className="size-3.5" />}
+            {sortBy === "date" ? "Latest date" : sortBy === "name-asc" ? "Name (A–Z)" : "Name (Z–A)"}
+          </Button>
+        </div>
+      )}
+
       {!isLoading && !isError && (initiatives?.length ?? 0) > 0 && canCreate && (
         <div className="border border-border bg-card">
           <Table className="hidden lg:table">
             <TableHeader className="bg-muted/60">
               <TableRow className="divide-x divide-border">
                 <TableHead className="w-12 px-4">#</TableHead>
-                <TableHead className="px-4">Initiative</TableHead>
+                <SortableColumnHead label="Initiative" direction={nameSortDirection} onClick={cycleSortBy} className="px-4" />
                 <TableHead className="px-4">Type</TableHead>
                 <TableHead className="px-4">Budget</TableHead>
                 <TableHead className="px-4">Requested</TableHead>
                 <TableHead className="px-4">Approved</TableHead>
-                <TableHead className="px-4">Status</TableHead>
+                <FilterableColumnHead
+                  label="Status"
+                  value={statusFilter}
+                  onChange={changeStatusFilter}
+                  options={filterTabOptions}
+                  className="px-4"
+                />
                 <TableHead className="px-4 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -151,7 +250,7 @@ export default function MyInitiatives() {
                       {formatMoney(initiative.total_approved_amount, initiative.currency)}
                     </TableCell>
                     <TableCell className="px-4 py-1.5">
-                      <InitiativeStatusBadge status={initiative.status} />
+                      <InitiativeStatusBadge initiative={initiative} />
                     </TableCell>
                     <TableCell className="px-4 py-1.5 text-right">
                       {isOwner && (
@@ -199,7 +298,9 @@ export default function MyInitiatives() {
                     </span>
                   </MobileField>
                   <MobileField label="Approved">{formatMoney(initiative.total_approved_amount, initiative.currency)}</MobileField>
-                  <MobileField label="Status"><InitiativeStatusBadge status={initiative.status} /></MobileField>
+                  <MobileField label="Status">
+                    <InitiativeStatusBadge initiative={initiative} />
+                  </MobileField>
                   {isOwner && (
                     <div className="mt-1 flex justify-end gap-1 border-t border-border pt-2">
                       <Button asChild variant="ghost" size="icon-sm" aria-label={`Edit ${initiative.name}`}>
@@ -225,7 +326,7 @@ export default function MyInitiatives() {
             })}
           </div>
           <TablePagination
-            total={initiatives?.length ?? 0}
+            total={filteredSorted.length}
             page={page}
             pageSize={pageSize}
             onPageChange={setPage}
@@ -240,13 +341,19 @@ export default function MyInitiatives() {
             <TableHeader className="bg-muted/60">
               <TableRow>
                 <TableHead className="w-12 px-5">#</TableHead>
-                <TableHead className="px-5">Initiative</TableHead>
+                <SortableColumnHead label="Initiative" direction={nameSortDirection} onClick={cycleSortBy} className="px-5" />
                 <TableHead className="px-5">Created By</TableHead>
                 <TableHead className="px-5">Type</TableHead>
                 <TableHead className="px-5">Budget</TableHead>
                 <TableHead className="px-5">Requested</TableHead>
                 <TableHead className="px-5">Approved</TableHead>
-                <TableHead className="px-5">Status</TableHead>
+                <FilterableColumnHead
+                  label="Status"
+                  value={statusFilter}
+                  onChange={changeStatusFilter}
+                  options={filterTabOptions}
+                  className="px-5"
+                />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -282,7 +389,7 @@ export default function MyInitiatives() {
                     {formatMoney(initiative.total_approved_amount, initiative.currency)}
                   </TableCell>
                   <TableCell className="px-5 py-3">
-                    <InitiativeStatusBadge status={initiative.status} />
+                    <InitiativeStatusBadge initiative={initiative} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -310,13 +417,15 @@ export default function MyInitiatives() {
                   </span>
                 </MobileField>
                 <MobileField label="Approved">{formatMoney(initiative.total_approved_amount, initiative.currency)}</MobileField>
-                <MobileField label="Status"><InitiativeStatusBadge status={initiative.status} /></MobileField>
+                <MobileField label="Status">
+                  <InitiativeStatusBadge initiative={initiative} />
+                </MobileField>
               </MobileRow>
             ))}
           </div>
           <div className="border-t border-border px-5 py-3">
             <TablePagination
-              total={initiatives?.length ?? 0}
+              total={filteredSorted.length}
               page={page}
               pageSize={pageSize}
               onPageChange={setPage}

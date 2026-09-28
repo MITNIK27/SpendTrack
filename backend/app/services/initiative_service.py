@@ -70,7 +70,11 @@ def decide_budget(db: Session, *, initiative: Initiative, approver: User, action
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown decision '{action}'.")
     if initiative.status == "draft":
         raise HTTPException(status.HTTP_409_CONFLICT, "This initiative hasn't been submitted yet.")
-    if initiative.spend_requests:
+    # A leftover/abandoned draft under this initiative must never block its
+    # own budget decision — a draft is a private scratchpad, not a real
+    # breakdown (has_submitted_spend already excludes drafts; the raw
+    # `initiative.spend_requests` relationship does not).
+    if has_submitted_spend(db, initiative):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             "This initiative has its own spend breakdown — decide its spend requests individually instead.",

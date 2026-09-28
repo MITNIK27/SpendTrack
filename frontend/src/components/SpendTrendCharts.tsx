@@ -102,8 +102,8 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
               <LineChart data={monthlyData} margin={{ left: 4, right: 12, top: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="month_label" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v: number) => formatMoney(v)} width={80} />
-                <Tooltip formatter={(v: unknown) => formatMoney(v as number)} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v: number) => formatMoney(v, data.display_currency)} width={80} />
+                <Tooltip formatter={(v: unknown) => formatMoney(v as number, data.display_currency)} />
                 <Legend />
                 <Line type="monotone" dataKey="Approved" stroke={CHART_COLORS[0]} strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="Actual" stroke={CHART_COLORS[1]} strokeWidth={2} dot={false} />
@@ -120,8 +120,8 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
               <BarChart data={quarterlyData} margin={{ left: 4, right: 12, top: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v: number) => formatMoney(v)} width={80} />
-                <Tooltip formatter={(v: unknown) => formatMoney(v as number)} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v: number) => formatMoney(v, data.display_currency)} width={80} />
+                <Tooltip formatter={(v: unknown) => formatMoney(v as number, data.display_currency)} />
                 <Legend />
                 <Bar dataKey="Approved" fill={CHART_COLORS[0]} />
                 <Bar dataKey="Actual" fill={CHART_COLORS[1]} />
@@ -136,7 +136,7 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
           ) : (
             <ResponsiveContainer width="100%" height={260}>
               <PieChart>
-                <Tooltip formatter={(v: unknown) => formatMoney(v as number)} />
+                <Tooltip formatter={(v: unknown) => formatMoney(v as number, data.display_currency)} />
                 <Legend />
                 <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={2}>
                   {pieData.map((entry, i) => (
@@ -156,9 +156,9 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
               <BarChart data={categoryAverageData} margin={{ left: 4, right: 12, top: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v: number) => formatMoney(v)} width={80} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v: number) => formatMoney(v, data.display_currency)} width={80} />
                 <Tooltip
-                  formatter={(v: unknown) => formatMoney(v as number)}
+                  formatter={(v: unknown) => formatMoney(v as number, data.display_currency)}
                   labelFormatter={(_, payload) => payload?.[0]?.payload?.fullName ?? ""}
                 />
                 <Legend />

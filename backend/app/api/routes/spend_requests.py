@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -13,7 +13,7 @@ from app.models.spend_request import SpendRequest
 from app.models.user import User
 from app.schemas.approval_action import ApprovalDecisionInput, ApproveBatchInput
 from app.schemas.spend_request import ActualSpendInput, SpendRequestCreate, SpendRequestRead, SpendRequestUpdate
-from app.services import approval_service, spend_request_service
+from app.services import approval_service, email_service, notification_service, spend_request_service
 from app.services.spend_request_visibility import is_spend_request_visible, visible_spend_requests_clause
 
 router = APIRouter(tags=["spend-requests"])
@@ -124,18 +124,27 @@ def update_spend_request(
 @router.post("/spend-requests/{spend_request_id}/submit", response_model=SpendRequestRead)
 def submit_spend_request(
     spend_request_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> SpendRequest:
     spend_request = _get_spend_request_or_404(db, spend_request_id, user)
+    initiative = spend_request.initiative
     spend_request_service.submit(db, spend_request=spend_request, actor=user)
     db.commit()
+
+    to, subject, html = notification_service.build_spend_request_submitted_email(
+        db, spend_request=spend_request, initiative=initiative, actor=user
+    )
+    background_tasks.add_task(email_service.send_email, to, subject, html)
+
     return _reload_spend_request(db, spend_request.id)
 
 
 @router.post("/spend-requests/approve-batch", response_model=list[SpendRequestRead])
 def approve_batch(
     payload: ApproveBatchInput,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("approver", "admin")),
 ) -> list[SpendRequest]:
@@ -146,6 +155,7 @@ def approve_batch(
     rather than erroring the whole batch — a stale/already-decided id is not
     the caller's fault to fix before retrying."""
     approved_ids: list[uuid.UUID] = []
+    decided: list[tuple[SpendRequest, str | None]] = []
     for item in payload.decisions:
         spend_request = db.get(SpendRequest, item.spend_request_id)
         if (
@@ -158,12 +168,21 @@ def approve_batch(
             db,
             spend_request=spend_request,
             approver=user,
-            action="approve",
-            approved_amount=None,
+            action="approve_different_amount" if item.approved_amount is not None else "approve",
+            approved_amount=item.approved_amount,
             comment=item.comment,
         )
         approved_ids.append(spend_request.id)
+        decided.append((spend_request, item.comment))
     db.commit()
+
+    for spend_request, comment in decided:
+        email_payload = notification_service.build_spend_request_decision_email(
+            db, spend_request=spend_request, approver=user, comment=comment
+        )
+        if email_payload is not None:
+            background_tasks.add_task(email_service.send_email, *email_payload)
+
     if not approved_ids:
         return []
     # One eager-loaded query for the whole batch rather than a refresh per row
@@ -182,6 +201,7 @@ def approve_batch(
 def decide_spend_request(
     spend_request_id: uuid.UUID,
     payload: ApprovalDecisionInput,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user: User = Depends(require_role("approver", "admin")),
 ) -> SpendRequest:
@@ -195,6 +215,13 @@ def decide_spend_request(
         comment=payload.comment,
     )
     db.commit()
+
+    email_payload = notification_service.build_spend_request_decision_email(
+        db, spend_request=spend_request, approver=user, comment=payload.comment
+    )
+    if email_payload is not None:
+        background_tasks.add_task(email_service.send_email, *email_payload)
+
     return _reload_spend_request(db, spend_request.id)
 
 

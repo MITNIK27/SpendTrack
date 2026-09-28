@@ -15,6 +15,7 @@ class ApprovalDecisionInput(BaseModel):
 
 class ApproveBatchItem(BaseModel):
     spend_request_id: uuid.UUID
+    approved_amount: Decimal | None = Field(default=None, gt=0)
     comment: str | None = None
 
 

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel
@@ -48,6 +48,14 @@ class CategoryBreakdownRow(BaseModel):
 class SpendSummaryResponse(BaseModel):
     fiscal_year: int | None  # None means "all time" (all_time=True)
     matched_spend_request_count: int
+    # Every amount below has already been converted to this currency — see
+    # app/services/fx_service.py. fx_rate_is_stale is True when the rate
+    # didn't come from a fetch that succeeded just now (Frankfurter was
+    # unreachable, so the last known — or a static fallback — rate was used).
+    display_currency: str
+    fx_rate_usd_inr: str
+    fx_rate_as_of: date
+    fx_rate_is_stale: bool
     kpis: SpendSummaryKPIs
     by_category: list[CategoryBreakdownRow]
 
@@ -78,6 +86,10 @@ class SpendTrendsResponse(BaseModel):
     reduced to a single total."""
 
     fiscal_year: int | None
+    display_currency: str
+    fx_rate_usd_inr: str
+    fx_rate_as_of: date
+    fx_rate_is_stale: bool
     monthly: list[MonthlyTrendPoint]
     quarterly: list[QuarterlyTrendPoint]
     category_monthly_average: list[CategoryAverageRow]

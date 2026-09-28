@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { Plus } from "lucide-react"
+import { Pencil, Plus } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { BackButton } from "@/components/BackButton"
@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { MobileRow, MobileField } from "@/components/ui/mobile-card-row"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ApprovalTable, useApprovalChecklist } from "@/components/ApprovalChecklist"
+import { ApprovalTable, RejectConfirmDialog, useApprovalChecklist } from "@/components/ApprovalChecklist"
 import {
   InitiativeBudgetDecidedNotice,
   InitiativeBudgetDecisionCard,
@@ -16,6 +16,7 @@ import {
   useInitiativeBudgetDecision,
 } from "@/components/InitiativeBudgetDecision"
 import { InitiativeStatusBadge } from "@/components/InitiativeStatusBadge"
+import { InlineAddSpend } from "@/components/InlineAddSpend"
 import { formatMoney } from "@/lib/money"
 import { useInitiative, useSubmitInitiative, useSubmitSpendRequestById } from "@/api/queries"
 import { ApiError } from "@/api/client"
@@ -38,6 +39,7 @@ export default function InitiativeDetail() {
   const pending = initiative?.spend_requests.filter((sr) => PENDING_DECISION_STATUSES.includes(sr.status)) ?? []
   const approvalChecklist = useApprovalChecklist(pending, id)
   const budgetDecision = useInitiativeBudgetDecision(id)
+  const [addSpendOpen, setAddSpendOpen] = useState(false)
 
   if (isLoading) {
     return (
@@ -112,35 +114,57 @@ export default function InitiativeDetail() {
           <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
             {initiative.location && <span>{initiative.location}</span>}
             {initiative.event_date && <span>{initiative.event_date}</span>}
-            <InitiativeStatusBadge status={initiative.status} />
+            <InitiativeStatusBadge initiative={initiative} />
           </p>
           {initiative.objective && (
             <p className="mt-2 max-w-prose text-sm text-foreground">{initiative.objective}</p>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {isOwner && (
+            <Button asChild variant="outline">
+              <Link to={`/initiatives/${initiative.id}/edit`}>
+                <Pencil className="size-4" /> Edit
+              </Link>
+            </Button>
+          )}
           {isOwner && initiative.status === "draft" && (
             <Button onClick={openSubmitDialog} disabled={submitInitiative.isPending}>
               {submitInitiative.isPending ? "Submitting…" : "Submit for Approval"}
             </Button>
           )}
           {canDecide && pending.length > 0 && (
-            <Button
-              onClick={approvalChecklist.approve}
-              disabled={approvalChecklist.selectedCount === 0 || approvalChecklist.isPending}
-            >
-              {approvalChecklist.isPending ? "Approving…" : "Approve"}
-            </Button>
+            <>
+              <Button
+                onClick={approvalChecklist.approve}
+                disabled={approvalChecklist.selectedCount === 0 || approvalChecklist.isPending}
+              >
+                {approvalChecklist.isPending ? "Approving…" : "Approve"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={approvalChecklist.openRejectDialog}
+                disabled={approvalChecklist.selectedCount === 0 || approvalChecklist.isPending}
+              >
+                Reject
+              </Button>
+            </>
           )}
-          {canAddSpend && (
-            <Button asChild>
-              <Link to={`/initiatives/${initiative.id}/spend-requests/new`}>
-                <Plus className="size-4" /> Add Spend
-              </Link>
+          {canAddSpend && !addSpendOpen && (
+            <Button onClick={() => setAddSpendOpen(true)}>
+              <Plus className="size-4" /> Add Spend
             </Button>
           )}
         </div>
       </div>
+
+      {addSpendOpen && (
+        <InlineAddSpend
+          initiativeId={initiative.id}
+          currency={initiative.currency}
+          onClose={() => setAddSpendOpen(false)}
+        />
+      )}
 
       <div className={`mb-6 grid grid-cols-1 gap-3 ${budgetAmount !== null ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         {budgetAmount !== null && (
@@ -167,14 +191,12 @@ export default function InitiativeDetail() {
           <div className="flex flex-col items-center gap-3 border border-border bg-card px-6 py-12 text-center">
             <h3 className="text-lg font-bold">This initiative doesn't have any spend yet.</h3>
             {!canDecide && isInitiativeBudgetPending(initiative) && (
-              <p className="text-xs font-medium text-warning">Awaiting Siddharth's decision on the budget</p>
+              <p className="text-xs font-medium text-warning">Awaiting approval on the budget</p>
             )}
-            {canAddSpend && (
+            {canAddSpend && !addSpendOpen && (
               <>
                 <p className="text-sm text-muted-foreground">Add the first spend request for this initiative.</p>
-                <Button asChild variant="outline">
-                  <Link to={`/initiatives/${initiative.id}/spend-requests/new`}>+ Add Spend</Link>
-                </Button>
+                <Button variant="outline" onClick={() => setAddSpendOpen(true)}>+ Add Spend</Button>
               </>
             )}
           </div>
@@ -190,6 +212,7 @@ export default function InitiativeDetail() {
               <div className="border border-border bg-card">
                 <ApprovalTable spendRequests={pending} state={approvalChecklist} />
               </div>
+              <RejectConfirmDialog state={approvalChecklist} spendRequests={pending} initiativeName={initiative.name} />
             </div>
           )}
 
@@ -228,7 +251,7 @@ export default function InitiativeDetail() {
                               </div>
                             )}
                             {awaitingDecision && (
-                              <div className="text-xs font-medium text-warning">Awaiting Siddharth's decision</div>
+                              <div className="text-xs font-medium text-warning">Awaiting approval</div>
                             )}
                             {canSubmitThis && (
                               <div className="mt-1">
@@ -267,7 +290,7 @@ export default function InitiativeDetail() {
                         </div>
                         {sr.other_description && <p className="text-xs text-foreground">{sr.other_description}</p>}
                         {awaitingDecision && (
-                          <div className="text-xs font-medium text-warning">Awaiting Siddharth's decision</div>
+                          <div className="text-xs font-medium text-warning">Awaiting approval</div>
                         )}
                         <MobileField label="Category">{sr.category.name}</MobileField>
                         <MobileField label="Amount">{formatMoney(sr.requested_amount, initiative.currency)}</MobileField>

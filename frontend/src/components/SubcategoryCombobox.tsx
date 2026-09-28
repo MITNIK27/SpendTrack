@@ -33,22 +33,38 @@ export function SubcategoryCombobox({ categories, categoriesLoading, value, onCh
               categoryId: c.id,
               subcategoryId: s.id,
             }))
-          // Categories with no subcategories (e.g. the catch-all "Other") still
+          // Categories with no subcategories (e.g. the catch-all "Others") still
           // need to be reachable — surface the category itself as an option.
-          : [{ id: `${c.id}:`, label: c.name, sublabel: "Other", categoryId: c.id, subcategoryId: "" }],
+          : [{ id: `${c.id}:`, label: c.name, sublabel: "", categoryId: c.id, subcategoryId: "" }],
       ),
     [categories],
   )
 
   const selected = value ? flattened.find((o) => o.categoryId === value.categoryId && o.subcategoryId === value.subcategoryId) : undefined
 
+  // The catch-all category (code "Q", "Others") — identified by its stable
+  // taxonomy code, not its display name, so a future rename never breaks this.
+  const othersCategory = useMemo(() => (categories ?? []).find((c) => c.code === "Q"), [categories])
+
   const options = useMemo(() => {
     const q = query.trim().toLowerCase()
     // Don't dump all ~80 subcategories on focus — only surface matches once
     // the user actually starts typing.
     if (!q) return []
-    return flattened.filter((o) => o.label.toLowerCase().includes(q) || o.sublabel.toLowerCase().includes(q))
-  }, [flattened, query])
+    const matches = flattened.filter((o) => o.label.toLowerCase().includes(q) || o.sublabel.toLowerCase().includes(q))
+    if (matches.length > 0) return matches
+    // Nothing matched what they typed — suggest "Others" instead of a dead
+    // end, so there's always a way to keep going (describe it in the free
+    // text field that category requires).
+    if (!othersCategory) return []
+    return [{
+      id: `${othersCategory.id}:`,
+      label: othersCategory.name,
+      sublabel: "",
+      categoryId: othersCategory.id,
+      subcategoryId: "",
+    }]
+  }, [flattened, query, othersCategory])
 
   return (
     <SearchableCombobox

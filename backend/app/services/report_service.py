@@ -12,6 +12,7 @@ from app.models.approval_action import ApprovalAction
 from app.models.category import Category
 from app.models.initiative import Initiative
 from app.models.spend_request import SpendRequest
+from app.services import fx_service
 from app.schemas.report import (
     CategoryAverageRow,
     CategoryBreakdownRow,
@@ -43,6 +44,12 @@ class ReportFilters:
     # Bypasses fiscal-year scoping entirely — "all time" ("past approvals" regardless
     # of period). Quarter/month, if also given, still apply per-row across every year.
     all_time: bool = False
+    # Every matched row's approved/actual amount is converted to this currency
+    # before being summed — see fx_service.convert(). Rows are individually
+    # currency-tagged (initiatives/spend requests can be INR or USD), so
+    # without this every total below would silently add dollars and rupees
+    # together as if they were the same unit.
+    display_currency: str = "INR"
 
 
 @dataclass
@@ -68,6 +75,7 @@ class ReportableSpend:
     requested_amount: Decimal
     approved_amount: Decimal | None
     actual_amount: Decimal | None
+    currency: str
     status: str
     created_at: datetime
     decided_at: datetime | None
@@ -91,6 +99,7 @@ def _reportable_from_spend_request(sr: SpendRequest, latest_action: ApprovalActi
         requested_amount=sr.requested_amount,
         approved_amount=sr.approved_amount,
         actual_amount=sr.actual_amount,
+        currency=sr.currency,
         status=sr.status,
         created_at=sr.created_at,
         decided_at=sr.decided_at,
@@ -115,6 +124,7 @@ def _reportable_from_initiative_budget(initiative: Initiative) -> ReportableSpen
         requested_amount=initiative.estimated_total_budget,
         approved_amount=initiative.budget_approved_amount,
         actual_amount=None,
+        currency=initiative.currency,
         status=_STATUS_BY_INITIATIVE_BUDGET_DECISION[initiative.budget_decision],
         created_at=initiative.created_at,
         decided_at=initiative.budget_decided_at,
@@ -223,13 +233,14 @@ def spend_request_rows(db: Session, filters: ReportFilters) -> list[SpendRequest
 
 def spend_summary(db: Session, filters: ReportFilters) -> SpendSummaryResponse:
     target_fiscal_year, matched = matching_spend_requests(db, filters)
+    rate, rate_as_of, rate_is_stale = fx_service.get_usd_inr_rate()
 
     total_approved = Decimal("0")
     total_actual = Decimal("0")
     by_category: dict[uuid.UUID, dict] = {}
     for row in matched:
-        approved = row.approved_amount or Decimal("0")
-        actual = row.actual_amount or Decimal("0")
+        approved = fx_service.convert(row.approved_amount or Decimal("0"), row.currency, filters.display_currency, rate)
+        actual = fx_service.convert(row.actual_amount or Decimal("0"), row.currency, filters.display_currency, rate)
         total_approved += approved
         total_actual += actual
 
@@ -247,6 +258,10 @@ def spend_summary(db: Session, filters: ReportFilters) -> SpendSummaryResponse:
     return SpendSummaryResponse(
         fiscal_year=target_fiscal_year,
         matched_spend_request_count=len(matched),
+        display_currency=filters.display_currency,
+        fx_rate_usd_inr=str(rate),
+        fx_rate_as_of=rate_as_of,
+        fx_rate_is_stale=rate_is_stale,
         kpis=SpendSummaryKPIs(
             fy_spend_approved=str(total_approved),
             fy_spend_actual=str(total_actual),
@@ -280,6 +295,7 @@ def spend_trends(db: Session, filters: ReportFilters) -> SpendTrendsResponse:
     """
     trend_filters = replace(filters, quarter=None, month=None)
     target_fiscal_year, matched = matching_spend_requests(db, trend_filters)
+    rate, rate_as_of, rate_is_stale = fx_service.get_usd_inr_rate()
 
     monthly_buckets: dict[tuple[int, int], dict] = {}
     quarterly_buckets: dict[int, dict] = {q: {"approved": Decimal("0"), "actual": Decimal("0")} for q in (1, 2, 3, 4)}
@@ -288,8 +304,8 @@ def spend_trends(db: Session, filters: ReportFilters) -> SpendTrendsResponse:
 
     for row in matched:
         classification_date = row.created_at.date()
-        approved = row.approved_amount or Decimal("0")
-        actual = row.actual_amount or Decimal("0")
+        approved = fx_service.convert(row.approved_amount or Decimal("0"), row.currency, filters.display_currency, rate)
+        actual = fx_service.convert(row.actual_amount or Decimal("0"), row.currency, filters.display_currency, rate)
 
         month_key = (classification_date.year, classification_date.month)
         month_bucket = monthly_buckets.setdefault(month_key, {"approved": Decimal("0"), "actual": Decimal("0")})
@@ -342,6 +358,10 @@ def spend_trends(db: Session, filters: ReportFilters) -> SpendTrendsResponse:
 
     return SpendTrendsResponse(
         fiscal_year=target_fiscal_year,
+        display_currency=filters.display_currency,
+        fx_rate_usd_inr=str(rate),
+        fx_rate_as_of=rate_as_of,
+        fx_rate_is_stale=rate_is_stale,
         monthly=monthly,
         quarterly=quarterly,
         category_monthly_average=category_monthly_average,

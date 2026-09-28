@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate, type Location } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { BrandLockup } from "@/components/BrandLockup"
@@ -11,11 +11,20 @@ import { APP_NAME } from "@/lib/app-meta"
 export default function Login() {
   const { user, signIn, signInError } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [isSigningIn, setIsSigningIn] = useState(false)
 
+  // Set by ProtectedRoute when it bounced an unauthenticated visit here —
+  // e.g. clicking "Review this initiative" in an email notification before
+  // signing in. Send them there instead of their role's default landing page
+  // once signed in, so the link they actually clicked is where they land.
+  const from = (location.state as { from?: Location } | null)?.from
+
   useEffect(() => {
-    if (user) navigate(landingPathForRole(user.role), { replace: true })
-  }, [user, navigate])
+    if (!user) return
+    const destination = from ? `${from.pathname}${from.search}` : landingPathForRole(user.role)
+    navigate(destination, { replace: true })
+  }, [user, navigate, from])
 
   const handleSignIn = async () => {
     setIsSigningIn(true)

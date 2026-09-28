@@ -8,7 +8,7 @@ It is seeded into the `categories`/`subcategories` tables by an Alembic data mig
 file is the source of truth for that migration**, not the other way around. If the taxonomy needs
 to change later, edit it here first, then add a new migration.
 
-Category **Q. Other** requires a mandatory free-text description when selected
+Category **Q. Others** requires a mandatory free-text description when selected
 (`categories.requires_freetext_description = true`, enforced in the API/service layer, with a DB
 `CHECK` as defense in depth).
 
@@ -30,4 +30,4 @@ Category **Q. Other** requires a mandatory free-text description when selected
 | N | Research & Intelligence | Market research; Customer research; Surveys; Industry reports; Competitive intelligence; Research agencies; Data purchases |
 | O | Memberships & Associations | Industry memberships; Professional associations; Chamber memberships; Marketing organizations; Conference memberships |
 | P | Internal Marketing Initiatives | Internal campaigns; Employer branding; Internal events; Employee advocacy; Internal promotional material; Recruitment marketing |
-| Q | Other | Other Marketing Spend — description required |
+| Q | Others | Other Marketing Spend — description required |

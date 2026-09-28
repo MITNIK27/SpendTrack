@@ -1,9 +1,10 @@
-import { Navigate, Outlet } from "react-router-dom"
+import { Navigate, Outlet, useLocation } from "react-router-dom"
 import { useAuth } from "@/auth/AuthContext"
 import { landingPathForRole } from "@/auth/roleRouting"
 
 export function ProtectedRoute() {
   const { authReady, isLoading, isError, user } = useAuth()
+  const location = useLocation()
 
   // Firebase's initial auth-state check (restoring a persisted session on page
   // load) is async — wait for it before deciding, instead of flashing /login.
@@ -14,7 +15,12 @@ export function ProtectedRoute() {
       </div>
     )
   }
-  if (isError || !user) return <Navigate to="/login" replace />
+  // Carries the originally-requested URL (e.g. an email notification's
+  // "Review this initiative" link) through the login round trip — Login.tsx
+  // sends the user there afterward instead of always landing on their role's
+  // default page (see app/services/notification_service.py for where these
+  // links are built).
+  if (isError || !user) return <Navigate to="/login" state={{ from: location }} replace />
 
   return <Outlet />
 }

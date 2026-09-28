@@ -1,4 +1,5 @@
 import { getToken, setToken } from "@/auth/tokenStore"
+import { notifySessionExpired } from "@/auth/sessionEvents"
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8005/api"
 
@@ -20,9 +21,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     // Session expired, revoked, or the account was deactivated mid-session — drop the
-    // stale token so ProtectedRoute sends the user back to /login instead of retrying
-    // forever with a token the backend will never accept again.
-    if (res.status === 401) setToken(null)
+    // stale token and tell AuthContext so it can sign out and send the user back to
+    // /login, instead of leaving whichever screen was open to show its own generic
+    // "couldn't load" error with a dead session underneath it.
+    if (res.status === 401) {
+      setToken(null)
+      notifySessionExpired()
+    }
 
     let detail = res.statusText
     try {
@@ -58,7 +63,10 @@ export async function downloadFile(path: string, filename: string): Promise<void
 
   const res = await fetch(`${API_BASE_URL}${path}`, { headers })
   if (!res.ok) {
-    if (res.status === 401) setToken(null)
+    if (res.status === 401) {
+      setToken(null)
+      notifySessionExpired()
+    }
 
     let detail = res.statusText
     try {

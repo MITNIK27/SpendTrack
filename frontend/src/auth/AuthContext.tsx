@@ -1,8 +1,10 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react"
 import { useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { onIdTokenChanged, type User as FirebaseUser } from "firebase/auth"
 import { auth, firebaseSignOut, signInWithGoogle } from "@/auth/firebase"
 import { getToken, setToken } from "@/auth/tokenStore"
+import { SESSION_EXPIRED_EVENT } from "@/auth/sessionEvents"
 import { api, ApiError } from "@/api/client"
 import { useCurrentUser } from "@/api/queries"
 import type { UserRead } from "@/types/domain"
@@ -77,6 +79,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     return unsubscribe
   }, [qc])
+
+  // Any API call can independently discover the session is dead (token expired,
+  // revoked, or the account was deactivated) — whichever one notices first signs
+  // the user all the way out, so onIdTokenChanged(null) above does the actual
+  // token/cache cleanup and ProtectedRoute sends them to /login instead of the
+  // page they were on just showing a generic load error.
+  const signingOutFromExpiry = useRef(false)
+  useEffect(() => {
+    const handleExpired = () => {
+      if (signingOutFromExpiry.current) return
+      signingOutFromExpiry.current = true
+      toast.error("Your session has expired. Please sign in again.")
+      void firebaseSignOut().finally(() => {
+        signingOutFromExpiry.current = false
+      })
+    }
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleExpired)
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleExpired)
+  }, [])
 
   const signIn = async () => {
     setSignInError(null)

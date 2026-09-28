@@ -131,3 +131,30 @@
   body { @apply bg-background text-foreground; }
   html { @apply font-sans; }
 }
+
+/* Thin, brand-toned scrollbars everywhere (instead of the bulky OS default) —
+   both axes, so a horizontally-scrolling table and a vertically-scrolling
+   panel look consistent. Firefox via `scrollbar-*` props, WebKit/Chromium via
+   `::-webkit-scrollbar*`. */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--input) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--input);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted-foreground);
+  }
+}
