@@ -182,13 +182,17 @@ def submit_initiative(
 
     db.commit()
 
-    to, subject, html = notification_service.build_initiative_submitted_email(db, initiative=initiative, actor=user)
-    background_tasks.add_task(email_service.send_email, to, subject, html)
-    for spend_request in submitted_spend_requests:
-        to, subject, html = notification_service.build_spend_request_submitted_email(
-            db, spend_request=spend_request, initiative=initiative, actor=user
-        )
-        background_tasks.add_task(email_service.send_email, to, subject, html)
+    # One consolidated email per submission — covers the initiative plus
+    # every spend request bundled and submitted alongside it, instead of a
+    # separate email per line item. The returned Message-ID is persisted so a
+    # spend request added to this initiative later can thread as a reply
+    # under this same email (see notification_service.build_initiative_submitted_email).
+    to, subject, html, message_id = notification_service.build_initiative_submitted_email(
+        db, initiative=initiative, actor=user, spend_requests=submitted_spend_requests
+    )
+    initiative.notification_message_id = message_id
+    db.commit()
+    background_tasks.add_task(email_service.send_email, to, subject, html, message_id=message_id)
 
     initiative = _reload_initiative(db, initiative.id, INITIATIVE_DETAIL_EAGER_LOAD)
     visible_spend_requests = _visible_spend_requests(initiative, user)

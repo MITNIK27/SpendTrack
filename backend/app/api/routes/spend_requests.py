@@ -133,10 +133,10 @@ def submit_spend_request(
     spend_request_service.submit(db, spend_request=spend_request, actor=user)
     db.commit()
 
-    to, subject, html = notification_service.build_spend_request_submitted_email(
+    to, subject, html, in_reply_to = notification_service.build_spend_request_submitted_email(
         db, spend_request=spend_request, initiative=initiative, actor=user
     )
-    background_tasks.add_task(email_service.send_email, to, subject, html)
+    background_tasks.add_task(email_service.send_email, to, subject, html, in_reply_to=in_reply_to)
 
     return _reload_spend_request(db, spend_request.id)
 

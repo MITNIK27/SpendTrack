@@ -208,7 +208,6 @@ export default function MyInitiatives() {
           <Table className="hidden lg:table">
             <TableHeader className="bg-muted/60">
               <TableRow className="divide-x divide-border">
-                <TableHead className="w-12 px-4">#</TableHead>
                 <SortableColumnHead label="Initiative" direction={nameSortDirection} onClick={cycleSortBy} className="px-4" />
                 <TableHead className="px-4">Type</TableHead>
                 <TableHead className="px-4">Budget</TableHead>
@@ -225,13 +224,10 @@ export default function MyInitiatives() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((initiative, i) => {
+              {rows.map((initiative) => {
                 const isOwner = initiative.owner.id === user?.id
                 return (
                   <TableRow key={initiative.id} className="cursor-pointer divide-x divide-border odd:bg-card even:bg-muted/25">
-                    <TableCell className="px-4 py-1.5 tabular-nums text-muted-foreground">
-                      {(page - 1) * pageSize + i + 1}
-                    </TableCell>
                     <TableCell className="px-4 py-1.5">
                       <Link to={`/initiatives/${initiative.id}`} className="font-medium text-primary-text hover:underline">
                         {initiative.name}
@@ -280,12 +276,11 @@ export default function MyInitiatives() {
             </TableBody>
           </Table>
           <div className="flex flex-col gap-3 p-3 lg:hidden">
-            {rows.map((initiative, i) => {
+            {rows.map((initiative) => {
               const isOwner = initiative.owner.id === user?.id
               return (
                 <MobileRow key={initiative.id}>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-xs font-semibold text-muted-foreground">#{(page - 1) * pageSize + i + 1}</span>
                     <Link to={`/initiatives/${initiative.id}`} className="font-medium text-primary-text hover:underline">
                       {initiative.name}
                     </Link>
@@ -340,7 +335,6 @@ export default function MyInitiatives() {
           <Table className="hidden lg:table">
             <TableHeader className="bg-muted/60">
               <TableRow>
-                <TableHead className="w-12 px-5">#</TableHead>
                 <SortableColumnHead label="Initiative" direction={nameSortDirection} onClick={cycleSortBy} className="px-5" />
                 <TableHead className="px-5">Created By</TableHead>
                 <TableHead className="px-5">Type</TableHead>
@@ -357,15 +351,12 @@ export default function MyInitiatives() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((initiative, i) => (
+              {rows.map((initiative) => (
                 <TableRow
                   key={initiative.id}
                   className="cursor-pointer"
                   onClick={() => navigate(`/initiatives/${initiative.id}`)}
                 >
-                  <TableCell className="px-5 py-3 tabular-nums text-muted-foreground">
-                    {(page - 1) * pageSize + i + 1}
-                  </TableCell>
                   <TableCell className="px-5 py-3">
                     <Link
                       to={`/initiatives/${initiative.id}`}
@@ -396,10 +387,9 @@ export default function MyInitiatives() {
             </TableBody>
           </Table>
           <div className="flex flex-col gap-3 p-3 lg:hidden">
-            {rows.map((initiative, i) => (
+            {rows.map((initiative) => (
               <MobileRow key={initiative.id} onClick={() => navigate(`/initiatives/${initiative.id}`)}>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-xs font-semibold text-muted-foreground">#{(page - 1) * pageSize + i + 1}</span>
                   <Link
                     to={`/initiatives/${initiative.id}`}
                     className="font-medium text-primary-text hover:underline"

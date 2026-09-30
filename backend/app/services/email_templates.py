@@ -78,6 +78,36 @@ def _details_table(rows: list[tuple[str, str]]) -> str:
 </table>"""
 
 
+def _breakdown_table(rows: list[tuple[str, str, str]]) -> str:
+    """A multi-row, 3-column (Description / Category / Amount) table — the
+    spend-request breakdown submitted alongside a new initiative, so an
+    approver sees the whole ask in one email instead of one per line item."""
+    if not rows:
+        return ""
+    header_html = "".join(
+        f'<th align="left" style="padding:8px 16px;font-size:11px;text-transform:uppercase;'
+        f'letter-spacing:0.06em;color:{_MEDIUM_GRAY};border-bottom:1px solid {_LIGHT_GRAY};">{label}</th>'
+        for label in ("Description", "Category", "Amount")
+    )
+    row_html = "".join(
+        f"""<tr>
+              <td style="padding:10px 16px;border-bottom:1px solid {_LIGHT_GRAY};font-size:13px;color:{_CHARCOAL};">{description}</td>
+              <td style="padding:10px 16px;border-bottom:1px solid {_LIGHT_GRAY};font-size:13px;color:{_CHARCOAL};">{category}</td>
+              <td style="padding:10px 16px;border-bottom:1px solid {_LIGHT_GRAY};font-size:13px;color:{_CHARCOAL};white-space:nowrap;">{amount}</td>
+            </tr>"""
+        for description, category, amount in rows
+    )
+    return f"""\
+<p style="margin:20px 0 0;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:{_MEDIUM_GRAY};">
+  Spend requests submitted with this initiative
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="margin-top:8px;border:1px solid {_LIGHT_GRAY};border-collapse:collapse;">
+  <tr>{header_html}</tr>
+  {row_html}
+</table>"""
+
+
 # The app's own header lockup (frontend/src/components/BrandLockup.tsx,
 # "dark" variant): "Spend" in white + "Track" in Brand Red with a red
 # underline bar, a divider, then the InfoBeans mark — rebuilt here in table
@@ -97,10 +127,10 @@ _BRAND_HEADER = f"""\
       <div style="margin-top:6px;height:3px;width:52px;background-color:{_BRAND_RED};"></div>
     </td>
     <td style="padding:0 16px;vertical-align:middle;">
-      <div style="width:1px;height:26px;background-color:rgba(255,255,255,0.2);font-size:0;line-height:0;">&nbsp;</div>
+      <div style="width:1px;height:30px;background-color:rgba(255,255,255,0.2);font-size:0;line-height:0;">&nbsp;</div>
     </td>
     <td style="vertical-align:middle;">
-      <img src="cid:{LOGO_CID}" alt="InfoBeans" height="22" style="display:block;height:22px;border:0;">
+      <img src="cid:{LOGO_CID}" alt="InfoBeans" height="28" style="display:block;height:28px;border:0;">
     </td>
   </tr>
 </table>
@@ -168,8 +198,17 @@ def _layout(
 
 
 def new_initiative_created(
-    *, initiative_name: str, actor_name: str, details: list[tuple[str, str]], url: str
+    *,
+    initiative_name: str,
+    actor_name: str,
+    details: list[tuple[str, str]],
+    url: str,
+    spend_requests: list[tuple[str, str, str]] | None = None,
 ) -> tuple[str, str]:
+    """`spend_requests` — (description, category, amount) rows for whichever
+    draft spend requests were bundled and submitted together with this
+    initiative, rendered as one consolidated breakdown table so approvers get
+    a single email per submission instead of one per line item."""
     subject = f"New initiative for approval: {initiative_name}"
     body = _layout(
         preheader=f"{actor_name} submitted '{initiative_name}' for your approval.",
@@ -179,6 +218,7 @@ def new_initiative_created(
             f"<strong style='color:{_CHARCOAL};'>{initiative_name}</strong>, for approval.</p>"
             f"<div style='margin:16px 0;'>{_cta_button('Review initiative', url)}</div>"
             f"{_details_table(details)}"
+            f"{_breakdown_table(spend_requests or [])}"
         ),
         cta_label="Review initiative",
         cta_url=url,
@@ -198,10 +238,10 @@ def new_spend_request_created(
             f"<p><strong style='color:{_CHARCOAL};'>{actor_name}</strong> submitted a spend request, "
             f"<strong style='color:{_CHARCOAL};'>{spend_request_description}</strong>, under initiative "
             f"<strong style='color:{_CHARCOAL};'>{initiative_name}</strong>.</p>"
-            f"<div style='margin:16px 0;'>{_cta_button('Review spend request', url)}</div>"
+            f"<div style='margin:16px 0;'>{_cta_button('Review initiative', url)}</div>"
             f"{_details_table(details)}"
         ),
-        cta_label="Review spend request",
+        cta_label="Review initiative",
         cta_url=url,
         show_bottom_cta=False,
     )

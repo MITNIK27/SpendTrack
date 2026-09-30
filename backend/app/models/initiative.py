@@ -53,6 +53,14 @@ class Initiative(Base):
     )
     budget_decision_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Message-ID of the "new initiative submitted" approver email (see
+    # notification_service.build_initiative_submitted_email) — stored so a
+    # later "spend request added to this initiative" email can thread as a
+    # reply (In-Reply-To/References) under the same conversation in the
+    # approver's inbox. Nullable: older initiatives predate this column, and
+    # a missing value just means that later email starts a fresh thread.
+    notification_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

@@ -10,6 +10,7 @@ successful API call into a 500.
 import logging
 import smtplib
 from email.message import EmailMessage
+from email.utils import make_msgid
 from pathlib import Path
 
 from app.core.config import settings
@@ -20,7 +21,14 @@ logger = logging.getLogger(__name__)
 _LOGO_PATH = Path(__file__).resolve().parent.parent / "assets" / "email-logo.png"
 
 
-def send_email(to: list[str], subject: str, html_body: str) -> None:
+def send_email(
+    to: list[str],
+    subject: str,
+    html_body: str,
+    *,
+    message_id: str | None = None,
+    in_reply_to: str | None = None,
+) -> None:
     recipients = [addr for addr in to if addr]
     if not recipients:
         return
@@ -37,6 +45,10 @@ def send_email(to: list[str], subject: str, html_body: str) -> None:
     message["Subject"] = subject
     message["From"] = settings.smtp_from_email or settings.smtp_user
     message["To"] = ", ".join(recipients)
+    message["Message-ID"] = message_id or make_msgid()
+    if in_reply_to:
+        message["In-Reply-To"] = in_reply_to
+        message["References"] = in_reply_to
     message.set_content("This email requires an HTML-capable client to view.")
     message.add_alternative(html_body, subtype="html")
 

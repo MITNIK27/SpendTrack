@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { ArrowDown, ArrowUp, ArrowUpDown, ListFilter } from "lucide-react"
 import { cn } from "cn"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { MobileRow, MobileField } from "@/components/ui/mobile-card-row"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
@@ -233,7 +234,7 @@ function selectedTotals(spendRequests: SpendRequest[], state: ChecklistState): {
 export function ApprovalTable({ spendRequests, state, initiativeNames, controls }: TableProps) {
   if (spendRequests.length === 0) return null
   const groups = groupByInitiative(spendRequests, initiativeNames)
-  const columnCount = controls ? 8 : 7
+  const columnCount = controls ? 7 : 6
 
   return (
     <>
@@ -262,9 +263,8 @@ export function ApprovalTable({ spendRequests, state, initiativeNames, controls 
       )}
 
       <Table className="hidden lg:table">
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-12">#</TableHead>
+        <TableHeader className="bg-muted/60 [&_th]:font-semibold">
+          <TableRow className="divide-x divide-border border-b-2 border-border">
             <TableHead className="w-10">
               <Checkbox checked={state.allSelected} onCheckedChange={(v) => state.toggleAll(!!v)} aria-label="Select all" />
             </TableHead>
@@ -302,7 +302,7 @@ export function ApprovalTable({ spendRequests, state, initiativeNames, controls 
             return (
             <Fragment key={group.key}>
               {group.name !== null && (
-                <TableRow key={`${group.key}-header`} className="bg-muted hover:bg-muted">
+                <TableRow key={`${group.key}-header`} className="border-b-2 border-border bg-accent/50 hover:bg-accent/50">
                   <TableCell colSpan={columnCount} className="py-2">
                     <Link to={`/initiatives/${group.key}`} className="text-sm font-bold text-foreground hover:text-primary-text hover:underline">
                       {group.name}
@@ -313,9 +313,8 @@ export function ApprovalTable({ spendRequests, state, initiativeNames, controls 
                   </TableCell>
                 </TableRow>
               )}
-              {group.rows.map((sr, i) => (
-                <TableRow key={sr.id}>
-                  <TableCell className="tabular-nums text-muted-foreground">{i + 1}</TableCell>
+              {group.rows.map((sr) => (
+                <TableRow key={sr.id} className="hover:bg-primary/5">
                   <TableCell>
                     <Checkbox
                       checked={state.selected.has(sr.id)}
@@ -337,11 +336,25 @@ export function ApprovalTable({ spendRequests, state, initiativeNames, controls 
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="max-w-[120px] truncate" title={sr.created_by.name}>
-                    {sr.created_by.name}
+                  <TableCell className="max-w-[120px] truncate">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="block truncate">{sr.created_by.name}</span>
+                        </TooltipTrigger>
+                        <TooltipContent>{sr.created_by.name}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </TableCell>
-                  <TableCell className="max-w-[100px] truncate" title={sr.category.name}>
-                    {sr.category.name}
+                  <TableCell className="max-w-[100px] truncate">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="block truncate">{sr.category.name}</span>
+                        </TooltipTrigger>
+                        <TooltipContent>{sr.category.name}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </TableCell>
                   {controls && (
                     <TableCell>
@@ -423,7 +436,7 @@ export function ApprovalTable({ spendRequests, state, initiativeNames, controls 
                 </span>
               </div>
             )}
-            {group.rows.map((sr, i) => (
+            {group.rows.map((sr) => (
               <MobileRow key={sr.id}>
                 <div className="flex items-start gap-3">
                   <Checkbox
@@ -432,7 +445,6 @@ export function ApprovalTable({ spendRequests, state, initiativeNames, controls 
                     onCheckedChange={(v) => state.toggleOne(sr.id, !!v)}
                     aria-label={`Select ${sr.description ?? sr.category.name}`}
                   />
-                  <span className="text-xs font-semibold text-muted-foreground">#{i + 1}</span>
                   <Link to={`/spend-requests/${sr.id}`} className="font-medium text-primary-text hover:underline">
                     {sr.description ?? sr.category.name}
                   </Link>

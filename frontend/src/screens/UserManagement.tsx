@@ -72,9 +72,8 @@ export default function UserManagement() {
       {!isLoading && !isError && (
         <div className="border border-border bg-card">
           <Table className="hidden lg:table">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">#</TableHead>
+            <TableHeader className="bg-muted/60">
+              <TableRow className="divide-x divide-border">
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
@@ -83,12 +82,11 @@ export default function UserManagement() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(users ?? []).map((u, i) => {
+              {(users ?? []).map((u) => {
                 const isSelf = u.id === me?.id
                 const busy = pendingId === u.id
                 return (
                   <TableRow key={u.id}>
-                    <TableCell className="tabular-nums text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">{u.name}</TableCell>
                     <TableCell className="text-muted-foreground">{u.email}</TableCell>
                     <TableCell>
@@ -130,13 +128,12 @@ export default function UserManagement() {
           </Table>
 
           <div className="flex flex-col gap-3 p-3 lg:hidden">
-            {(users ?? []).map((u, i) => {
+            {(users ?? []).map((u) => {
               const isSelf = u.id === me?.id
               const busy = pendingId === u.id
               return (
                 <MobileRow key={u.id}>
                   <div className="flex items-baseline gap-2 font-medium">
-                    <span className="text-xs font-semibold text-muted-foreground">#{i + 1}</span>
                     {u.name}
                   </div>
                   <MobileField label="Email"><span className="text-muted-foreground">{u.email}</span></MobileField>

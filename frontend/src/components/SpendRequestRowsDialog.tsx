@@ -54,7 +54,6 @@ export function SpendRequestRowsDialog({ open, onOpenChange, title, filters }: P
               <Table className="hidden lg:table">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-12">#</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Initiative</TableHead>
                     <TableHead>Requester</TableHead>
@@ -67,9 +66,8 @@ export function SpendRequestRowsDialog({ open, onOpenChange, title, filters }: P
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pageRows.map((row, i) => (
+                  {pageRows.map((row) => (
                     <TableRow key={row.id}>
-                      <TableCell className="tabular-nums text-muted-foreground">{(page - 1) * pageSize + i + 1}</TableCell>
                       <TableCell className="max-w-64 min-w-40 whitespace-normal break-words">
                         <Link
                           to={row.is_initiative_budget ? `/initiatives/${row.initiative_id}` : `/spend-requests/${row.id}`}
@@ -98,10 +96,9 @@ export function SpendRequestRowsDialog({ open, onOpenChange, title, filters }: P
               </Table>
 
               <div className="flex flex-col gap-3 p-3 lg:hidden">
-                {pageRows.map((row, i) => (
+                {pageRows.map((row) => (
                   <MobileRow key={row.id}>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-xs font-semibold text-muted-foreground">#{(page - 1) * pageSize + i + 1}</span>
                       <Link
                         to={row.is_initiative_budget ? `/initiatives/${row.initiative_id}` : `/spend-requests/${row.id}`}
                         className="font-medium text-primary-text hover:underline"

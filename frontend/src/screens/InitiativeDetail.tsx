@@ -221,9 +221,8 @@ export default function InitiativeDetail() {
               <h2 className="mb-2 text-lg font-bold">Spend Requests</h2>
               <div className="border border-border bg-card">
                 <Table className="hidden lg:table">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">#</TableHead>
+                  <TableHeader className="bg-muted/60">
+                    <TableRow className="divide-x divide-border">
                       <TableHead>Description</TableHead>
                       <TableHead>Category</TableHead>
                       <TableHead>Amount</TableHead>
@@ -231,7 +230,7 @@ export default function InitiativeDetail() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rest.map((sr, i) => {
+                    {rest.map((sr) => {
                       const awaitingDecision = !canDecide && PENDING_DECISION_STATUSES.includes(sr.status)
                       // Submitting a lone spend request only makes sense once the initiative
                       // itself is published — otherwise it'd land in Siddharth's queue with
@@ -240,7 +239,6 @@ export default function InitiativeDetail() {
                         sr.status === "draft" && sr.created_by.id === user?.id && initiative.status !== "draft"
                       return (
                         <TableRow key={sr.id} className={awaitingDecision ? "bg-warning/10" : undefined}>
-                          <TableCell className="tabular-nums text-muted-foreground">{i + 1}</TableCell>
                           <TableCell>
                             <Link to={`/spend-requests/${sr.id}`} className="font-medium text-primary-text hover:underline">
                               {sr.description}
@@ -276,14 +274,13 @@ export default function InitiativeDetail() {
                 </Table>
 
                 <div className="flex flex-col gap-3 p-3 lg:hidden">
-                  {rest.map((sr, i) => {
+                  {rest.map((sr) => {
                     const awaitingDecision = !canDecide && PENDING_DECISION_STATUSES.includes(sr.status)
                     const canSubmitThis =
                       sr.status === "draft" && sr.created_by.id === user?.id && initiative.status !== "draft"
                     return (
                       <MobileRow key={sr.id} className={awaitingDecision ? "bg-warning/10" : undefined}>
                         <div className="flex items-baseline gap-2">
-                          <span className="text-xs font-semibold text-muted-foreground">#{i + 1}</span>
                           <Link to={`/spend-requests/${sr.id}`} className="font-medium text-primary-text hover:underline">
                             {sr.description}
                           </Link>

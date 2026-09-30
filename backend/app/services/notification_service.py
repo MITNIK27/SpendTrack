@@ -8,15 +8,19 @@ session is already closed by the time BackgroundTasks run. Callers should do
 the actual `email_service.send_email(...)` call via BackgroundTasks so the
 slow part (the SMTP round trip) never blocks the response:
 
-    to, subject, html = notification_service.build_initiative_submitted_email(
-        db, initiative=initiative, actor=user
+    to, subject, html, message_id = notification_service.build_initiative_submitted_email(
+        db, initiative=initiative, actor=user, spend_requests=submitted_spend_requests
     )
-    background_tasks.add_task(email_service.send_email, to, subject, html)
+    initiative.notification_message_id = message_id
+    db.commit()
+    background_tasks.add_task(email_service.send_email, to, subject, html, message_id=message_id)
 
 Failures during the actual send are logged inside email_service.send_email
 and never raised — a build_* function itself does no I/O beyond the DB query
 already needed for the response.
 """
+
+from email.utils import make_msgid
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -34,6 +38,15 @@ _SPEND_DECISION_LABELS = {
 }
 
 _EmailPayload = tuple[list[str], str, str]
+# (to, subject, html, generated Message-ID) — the Message-ID must be handed
+# back so the caller can persist it (Initiative.notification_message_id)
+# *before* committing, since BackgroundTasks run after the DB session used to
+# build this payload is gone.
+_ThreadRootEmailPayload = tuple[list[str], str, str, str]
+# (to, subject, html, In-Reply-To to pass through to email_service.send_email
+# — None when there's no parent thread to attach to, e.g. an older initiative
+# that predates notification_message_id).
+_ThreadedReplyEmailPayload = tuple[list[str], str, str, str | None]
 
 
 def _approver_emails(db: Session) -> list[str]:
@@ -72,6 +85,15 @@ def _initiative_details(initiative: Initiative) -> list[tuple[str, str]]:
     return rows
 
 
+def _category_label(spend_request: SpendRequest) -> str:
+    if spend_request.category is None:
+        return "—"
+    label = spend_request.category.name
+    if spend_request.subcategory is not None:
+        label += f" – {spend_request.subcategory.name}"
+    return label
+
+
 def _spend_request_details(spend_request: SpendRequest, initiative: Initiative) -> list[tuple[str, str]]:
     """Mirrors the current spend form (SpendBreakdownFields.tsx): what it's
     for (category/subcategory), amount, and one freeform Remarks field
@@ -82,10 +104,7 @@ def _spend_request_details(spend_request: SpendRequest, initiative: Initiative) 
         ("Description", spend_request.description or "—"),
     ]
     if spend_request.category is not None:
-        category_label = spend_request.category.name
-        if spend_request.subcategory is not None:
-            category_label += f" – {spend_request.subcategory.name}"
-        rows.append(("Category", category_label))
+        rows.append(("Category", _category_label(spend_request)))
     if spend_request.vendor:
         rows.append(("Vendor", spend_request.vendor))
     rows.append(("Requested amount", email_templates.format_amount(spend_request.requested_amount, spend_request.currency)))
@@ -94,20 +113,51 @@ def _spend_request_details(spend_request: SpendRequest, initiative: Initiative) 
     return rows
 
 
-def build_initiative_submitted_email(db: Session, *, initiative: Initiative, actor: User) -> _EmailPayload:
+def build_initiative_submitted_email(
+    db: Session, *, initiative: Initiative, actor: User, spend_requests: list[SpendRequest] | None = None
+) -> _ThreadRootEmailPayload:
+    """One consolidated email per initiative submission — covers the
+    initiative itself plus every draft spend request bundled and submitted
+    alongside it (previously each of those fired its own separate email; see
+    submit_initiative). Returns a generated Message-ID so the caller can
+    persist it as Initiative.notification_message_id *before* committing,
+    letting a later "spend request added to this initiative" email thread as
+    a reply under this one."""
     to = _approver_emails(db)
     url = f"{settings.frontend_base_url}/initiatives/{initiative.id}"
+    breakdown = [
+        (
+            sr.description or "Spend request",
+            _category_label(sr),
+            email_templates.format_amount(sr.requested_amount, sr.currency),
+        )
+        for sr in (spend_requests or [])
+    ]
     subject, body = email_templates.new_initiative_created(
-        initiative_name=initiative.name, actor_name=actor.name, details=_initiative_details(initiative), url=url
+        initiative_name=initiative.name,
+        actor_name=actor.name,
+        details=_initiative_details(initiative),
+        url=url,
+        spend_requests=breakdown,
     )
-    return to, subject, body
+    return to, subject, body, make_msgid()
 
 
 def build_spend_request_submitted_email(
     db: Session, *, spend_request: SpendRequest, initiative: Initiative, actor: User
-) -> _EmailPayload:
+) -> _ThreadedReplyEmailPayload:
+    """Only reached for a spend request added to an initiative *after* its
+    own submission email already went out (a request bundled into the
+    initiative's own submission is covered by build_initiative_submitted_email
+    instead — see submit_initiative). Links to the initiative page, same as
+    every other approver-facing email, since that's where the approve/reject
+    action actually lives (ApprovalTable on InitiativeDetail), not a
+    standalone spend-request page. Threads under the initiative's own email
+    when its Message-ID was captured; falls back to a normal, unthreaded send
+    otherwise (e.g. an initiative created before this column existed)."""
     to = _approver_emails(db)
-    url = f"{settings.frontend_base_url}/spend-requests/{spend_request.id}"
+    url = f"{settings.frontend_base_url}/initiatives/{initiative.id}"
+    in_reply_to = initiative.notification_message_id
     subject, body = email_templates.new_spend_request_created(
         spend_request_description=spend_request.description or "Spend request",
         initiative_name=initiative.name,
@@ -115,7 +165,9 @@ def build_spend_request_submitted_email(
         details=_spend_request_details(spend_request, initiative),
         url=url,
     )
-    return to, subject, body
+    if in_reply_to:
+        subject = f"Re: New initiative for approval: {initiative.name}"
+    return to, subject, body, in_reply_to
 
 
 def build_initiative_decision_email(

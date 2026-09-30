@@ -119,22 +119,19 @@ export default function Dashboard() {
       </div>
 
       {alerts && alerts.length > 0 && (
-        <div className="mb-8 flex flex-col gap-2">
-          {alerts.map((a, i) => (
-            <Link
-              key={i}
-              to={a.entity_type === "initiative" ? `/initiatives/${a.entity_id}` : `/spend-requests/${a.entity_id}`}
-              className={`flex items-center gap-3 border px-4 py-3 text-sm ${
-                a.severity === "critical"
-                  ? "border-destructive/40 bg-destructive/10 text-destructive"
-                  : "border-chip-warning-fg bg-chip-warning-bg text-chip-warning-fg"
-              }`}
-            >
-              <TriangleAlert className="size-4 shrink-0" />
-              <span>{a.message}</span>
-            </Link>
-          ))}
-        </div>
+        <Link
+          to="/approvals"
+          className={`mb-8 flex items-center gap-3 border px-4 py-3 text-sm ${
+            alerts.some((a) => a.severity === "critical")
+              ? "border-destructive/40 bg-destructive/10 text-destructive"
+              : "border-chip-warning-fg bg-chip-warning-bg text-chip-warning-fg"
+          }`}
+        >
+          <TriangleAlert className="size-4 shrink-0" />
+          <span>
+            {alerts.length} item{alerts.length === 1 ? "" : "s"} need{alerts.length === 1 ? "s" : ""} your decision.
+          </span>
+        </Link>
       )}
 
       {stateLoading ? (
@@ -310,8 +307,8 @@ export default function Dashboard() {
           ) : (
             <div className="border border-border bg-card">
               <Table className="hidden lg:table">
-                <TableHeader>
-                  <TableRow>
+                <TableHeader className="bg-muted/60">
+                  <TableRow className="divide-x divide-border">
                     <TableHead>Category</TableHead>
                     <TableHead>Approved</TableHead>
                     <TableHead>Actual</TableHead>
