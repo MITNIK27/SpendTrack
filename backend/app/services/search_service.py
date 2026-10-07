@@ -15,6 +15,16 @@ MIN_QUERY_LENGTH = 2
 RESULT_LIMIT = 20
 
 
+def _normalize_amount_query(query: str) -> str:
+    """Strips every character that isn't a digit, regardless of what currency
+    notation surrounds it — symbol (₹, $), code (Rs, Rs., INR, USD), grouping
+    commas, or plain spaces. Currency-agnostic by construction: it has no
+    knowledge of "Rs" or "$" specifically, it just discards anything that
+    isn't 0-9, so any prefix/suffix/punctuation a user types falls away and
+    only the figure itself is left to match against."""
+    return re.sub(r"\D", "", query)
+
+
 def search(db: Session, *, query: str, user: User) -> SearchResponse:
     """Global search is request-first: every match — whether it hit the
     request's own name/category/owner/amount, or one of its spend-breakdown
@@ -27,9 +37,7 @@ def search(db: Session, *, query: str, user: User) -> SearchResponse:
         return SearchResponse(requests=[])
 
     pattern = f"%{query}%"
-    # Only digits/decimal point — lets "3,00,000" or "₹300000" still match an
-    # amount stored as a plain "300000.00", without the punctuation mattering.
-    amount_digits = re.sub(r"[^\d.]", "", query)
+    amount_digits = _normalize_amount_query(query)
 
     breakdown_match = (
         select(SpendRequest.initiative_id)

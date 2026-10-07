@@ -143,6 +143,7 @@ export const PENDING_DECISION_STATUSES: SpendRequestStatus[] = ["submitted", "un
 export const EDITABLE_SPEND_STATUSES: SpendRequestStatus[] = ["draft", "changes_requested"]
 
 export interface SpendSummaryKPIs {
+  fy_spend_requested: string
   fy_spend_approved: string
   fy_spend_actual: string
   fy_spend_available: string

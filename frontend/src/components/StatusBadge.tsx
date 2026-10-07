@@ -13,9 +13,9 @@ export type SpendRequestStatus =
 
 const map: Record<SpendRequestStatus, { label: string; cls: string }> = {
   draft: { label: "Saved as Draft", cls: "bg-muted text-muted-foreground" },
-  submitted: { label: "Submitted for Approval", cls: "bg-chip-warning-bg text-chip-warning-fg" },
-  under_review: { label: "Submitted for Approval", cls: "bg-chip-warning-bg text-chip-warning-fg" },
-  resubmitted: { label: "Submitted for Approval", cls: "bg-chip-warning-bg text-chip-warning-fg" },
+  submitted: { label: "Submitted for Approval", cls: "bg-chip-active-bg text-chip-active-fg" },
+  under_review: { label: "Submitted for Approval", cls: "bg-chip-active-bg text-chip-active-fg" },
+  resubmitted: { label: "Submitted for Approval", cls: "bg-chip-active-bg text-chip-active-fg" },
   changes_requested: { label: "Changes Requested", cls: "bg-chip-warning-bg text-chip-warning-fg" },
   approved: { label: "Approved", cls: "bg-chip-success-bg text-chip-success-fg" },
   rejected: { label: "Rejected", cls: "bg-chip-rejected-bg text-chip-rejected-fg" },

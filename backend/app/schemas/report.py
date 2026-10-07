@@ -31,6 +31,7 @@ class SpendRequestReportRow(BaseModel):
 
 
 class SpendSummaryKPIs(BaseModel):
+    fy_spend_requested: str
     fy_spend_approved: str
     fy_spend_actual: str
     fy_spend_available: str

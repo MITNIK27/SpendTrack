@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { cn } from "cn"
-import { TriangleAlert, Download, RotateCcw, ChevronDown } from "lucide-react"
+import { TriangleAlert, Download, RotateCcw, ChevronDown, ChevronRight } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { MobileRow, MobileField } from "@/components/ui/mobile-card-row"
 import { Button } from "@/components/ui/button"
@@ -46,7 +46,10 @@ const DEFAULT_FISCAL_YEAR = String(currentFiscalYear())
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { data: initiatives, isLoading: initiativesLoading } = useInitiatives()
+  // `data` (initiatives) only fed the now-hidden "Submitted Requests" tile —
+  // kept fetching (cheap, and the commented-out tile below still refers to
+  // it) but renamed so the unused-locals check doesn't flag it.
+  const { data: _initiatives, isLoading: initiativesLoading } = useInitiatives()
   const { data: alerts } = useAlerts()
   const { data: categories } = useCategories()
 
@@ -97,10 +100,12 @@ export default function Dashboard() {
     }
   }
 
-  const kpis = useMemo(() => {
-    const activeInitiatives = (initiatives ?? []).filter((i) => i.status === "active").length
-    return { activeInitiatives }
-  }, [initiatives])
+  // Fed the now-hidden "Submitted Requests" tile (see the commented-out KPI
+  // block below) — paused, not deleted, alongside that tile.
+  // const kpis = useMemo(() => {
+  //   const activeInitiatives = (initiatives ?? []).filter((i) => i.status === "active").length
+  //   return { activeInitiatives }
+  // }, [initiatives])
 
   const isFiltered =
     fiscalYear !== DEFAULT_FISCAL_YEAR || !!quarter || !!month || !!categoryId || !!requesterId || !!statusFilter
@@ -108,7 +113,7 @@ export default function Dashboard() {
   return (
     <div>
       <div className="mb-6">
-        <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Overview</div>
+        {/* <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Overview</div> */}
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <p className="mt-1 text-base text-muted-foreground">
           Organization-wide marketing spend — status, approvals, and the leadership report, all in one place.
@@ -118,31 +123,27 @@ export default function Dashboard() {
       {alerts && alerts.length > 0 && (
         <Link
           to="/approvals"
-          className={`mb-8 flex items-center gap-3 border px-4 py-3 text-sm ${
+          className={`mb-8 flex items-center gap-3 border px-4 py-3 text-sm transition-colors ${
             alerts.some((a) => a.severity === "critical")
-              ? "border-destructive/40 bg-destructive/10 text-destructive"
-              : "border-chip-warning-fg bg-chip-warning-bg text-chip-warning-fg"
+              ? "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20"
+              : "border-chip-warning-fg bg-chip-warning-bg text-chip-warning-fg hover:bg-chip-warning-fg/20"
           }`}
         >
           <TriangleAlert className="size-4 shrink-0" />
           <span>
             {alerts.length} item{alerts.length === 1 ? "" : "s"} need{alerts.length === 1 ? "s" : ""} your decision.
           </span>
+          <span className="ml-auto flex items-center gap-1 text-xs font-medium">
+            Review now <ChevronRight className="size-3.5" />
+          </span>
         </Link>
       )}
 
       {initiativesLoading || isLoading ? (
-        <div className="mb-8 space-y-3 sm:space-y-4">
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            {[1, 2].map((i) => (
-              <div key={i} className="h-24 w-full bg-muted motion-safe:animate-pulse" />
-            ))}
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            {[3, 4].map((i) => (
-              <div key={i} className="h-24 w-full bg-muted motion-safe:animate-pulse" />
-            ))}
-          </div>
+        <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4">
+          {[1, 2].map((i) => (
+            <div key={i} className="h-24 w-full bg-muted motion-safe:animate-pulse" />
+          ))}
         </div>
       ) : isError ? (
         <div className="mb-8 border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
@@ -151,6 +152,8 @@ export default function Dashboard() {
       ) : (
         data && (
           <div className="mb-8">
+            {/* Pre-"Requested/Approved" KPI layout — hidden, not deleted, in case
+                Actual/Available figures become trustworthy again later.
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <KpiTile label="Submitted Requests" value={String(kpis.activeInitiatives)} onClick={() => navigate("/initiatives")} />
               <KpiTile
@@ -169,6 +172,19 @@ export default function Dashboard() {
                 label={`${periodLabel} Available`}
                 value={formatMoney(data.kpis.fy_spend_available, data.display_currency)}
                 onClick={() => setDrilldown({ title: `${periodLabel} Available — matching spend requests` })}
+              />
+            </div>
+            */}
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <KpiTile
+                label={`${periodLabel} Requested`}
+                value={formatMoney(data.kpis.fy_spend_requested, data.display_currency)}
+                onClick={() => navigate("/initiatives")}
+              />
+              <KpiTile
+                label={`${periodLabel} Approved`}
+                value={formatMoney(data.kpis.fy_spend_approved, data.display_currency)}
+                onClick={() => navigate("/initiatives")}
               />
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -297,8 +313,8 @@ export default function Dashboard() {
                   <TableRow className="divide-x divide-border">
                     <TableHead>Category</TableHead>
                     <TableHead>Approved</TableHead>
-                    <TableHead>Actual</TableHead>
-                    <TableHead>Balance</TableHead>
+                    {/* <TableHead>Actual</TableHead> */}
+                    {/* <TableHead>Balance</TableHead> */}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -315,8 +331,8 @@ export default function Dashboard() {
                     >
                       <TableCell>{row.category_code}. {row.category_name}</TableCell>
                       <TableCell className="tabular-nums">{formatMoney(row.approved, data.display_currency)}</TableCell>
-                      <TableCell className="tabular-nums">{formatMoney(row.actual, data.display_currency)}</TableCell>
-                      <TableCell className="tabular-nums">{formatMoney(row.balance, data.display_currency)}</TableCell>
+                      {/* <TableCell className="tabular-nums">{formatMoney(row.actual, data.display_currency)}</TableCell> */}
+                      {/* <TableCell className="tabular-nums">{formatMoney(row.balance, data.display_currency)}</TableCell> */}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -335,8 +351,8 @@ export default function Dashboard() {
                   >
                     <div className="font-medium">{row.category_code}. {row.category_name}</div>
                     <MobileField label="Approved">{formatMoney(row.approved, data.display_currency)}</MobileField>
-                    <MobileField label="Actual">{formatMoney(row.actual, data.display_currency)}</MobileField>
-                    <MobileField label="Balance">{formatMoney(row.balance, data.display_currency)}</MobileField>
+                    {/* <MobileField label="Actual">{formatMoney(row.actual, data.display_currency)}</MobileField> */}
+                    {/* <MobileField label="Balance">{formatMoney(row.balance, data.display_currency)}</MobileField> */}
                   </MobileRow>
                 ))}
               </div>

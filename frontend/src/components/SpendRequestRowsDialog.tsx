@@ -59,9 +59,9 @@ export function SpendRequestRowsDialog({ open, onOpenChange, title, filters }: P
                     <TableHead>Requester</TableHead>
                     <TableHead>Requested</TableHead>
                     <TableHead>Approved</TableHead>
-                    <TableHead>Actual</TableHead>
+                    {/* <TableHead>Actual</TableHead> */}
                     <TableHead>Status</TableHead>
-                    <TableHead>Decided By</TableHead>
+                    {/* <TableHead>Decided By</TableHead> */}
                     <TableHead>Comment</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -84,9 +84,9 @@ export function SpendRequestRowsDialog({ open, onOpenChange, title, filters }: P
                       <TableCell className="whitespace-normal break-words">{row.requester_name}</TableCell>
                       <TableCell className="tabular-nums">{formatMoney(row.requested_amount)}</TableCell>
                       <TableCell className="tabular-nums">{formatMoney(row.approved_amount)}</TableCell>
-                      <TableCell className="tabular-nums">{formatMoney(row.actual_amount)}</TableCell>
+                      {/* <TableCell className="tabular-nums">{formatMoney(row.actual_amount)}</TableCell> */}
                       <TableCell><StatusBadge status={row.status} /></TableCell>
-                      <TableCell className="whitespace-normal break-words">{row.decided_by ?? "—"}</TableCell>
+                      {/* <TableCell className="whitespace-normal break-words">{row.decided_by ?? "—"}</TableCell> */}
                       <TableCell className="max-w-64 min-w-40 whitespace-normal break-words" title={row.decision_comment ?? undefined}>
                         {row.decision_comment ?? "—"}
                       </TableCell>
@@ -114,9 +114,9 @@ export function SpendRequestRowsDialog({ open, onOpenChange, title, filters }: P
                     <MobileField label="Requester">{row.requester_name}</MobileField>
                     <MobileField label="Requested">{formatMoney(row.requested_amount)}</MobileField>
                     <MobileField label="Approved">{formatMoney(row.approved_amount)}</MobileField>
-                    <MobileField label="Actual">{formatMoney(row.actual_amount)}</MobileField>
+                    {/* <MobileField label="Actual">{formatMoney(row.actual_amount)}</MobileField> */}
                     <MobileField label="Status"><StatusBadge status={row.status} /></MobileField>
-                    <MobileField label="Decided By">{row.decided_by ?? "—"}</MobileField>
+                    {/* <MobileField label="Decided By">{row.decided_by ?? "—"}</MobileField> */}
                     {row.decision_comment && (
                       <MobileField label="Comment">
                         <span className="max-w-48 whitespace-normal break-words">{row.decision_comment}</span>

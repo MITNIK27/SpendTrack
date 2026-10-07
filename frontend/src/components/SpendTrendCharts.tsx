@@ -4,8 +4,7 @@ import {
   CartesianGrid,
   Cell,
   Legend,
-  Line,
-  LineChart,
+  // Line, LineChart — only used by the hidden "Monthly Spend Trend" chart below; re-import alongside it.
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -53,7 +52,7 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
       <div className="mb-8">
         <h2 className="mb-3 text-lg font-bold">Spend Trends</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {[1, 2, 3, 4].map((i) => (
+          {[1, 2].map((i) => (
             <div key={i} className="h-72 w-full bg-muted motion-safe:animate-pulse" />
           ))}
         </div>
@@ -63,30 +62,34 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
 
   if (!data) return null
 
-  const monthlyData = data.monthly.map((m) => ({
-    month_label: m.month_label,
-    Approved: n(m.approved),
-    Actual: n(m.actual),
-  }))
+  // "Monthly Spend Trend" chart data — hidden, not deleted, alongside its
+  // ChartCard below.
+  // const monthlyData = data.monthly.map((m) => ({
+  //   month_label: m.month_label,
+  //   Approved: n(m.approved),
+  //   Actual: n(m.actual),
+  // }))
 
   const quarterlyData = data.quarterly.map((q) => ({
     label: QUARTER_LABELS[q.quarter] ?? `Q${q.quarter}`,
     Approved: n(q.approved),
-    Actual: n(q.actual),
+    // Actual: n(q.actual), — re-enable once Actual figures are trustworthy
   }))
 
   const pieData = byCategory
     .filter((c) => n(c.approved) > 0)
     .map((c) => ({ name: `${c.category_code}. ${c.category_name}`, value: n(c.approved) }))
 
-  const categoryAverageData = data.category_monthly_average.map((c) => ({
-    label: c.category_code,
-    fullName: `${c.category_code}. ${c.category_name}`,
-    "Avg Monthly Approved": n(c.average_monthly_approved),
-    "Avg Monthly Actual": n(c.average_monthly_actual),
-  }))
+  // "Average Monthly Spend by Category" chart data — hidden, not deleted,
+  // alongside its ChartCard below.
+  // const categoryAverageData = data.category_monthly_average.map((c) => ({
+  //   label: c.category_code,
+  //   fullName: `${c.category_code}. ${c.category_name}`,
+  //   "Avg Monthly Approved": n(c.average_monthly_approved),
+  //   "Avg Monthly Actual": n(c.average_monthly_actual),
+  // }))
 
-  const hasAnyData = monthlyData.length > 0 || pieData.length > 0
+  const hasAnyData = pieData.length > 0 || quarterlyData.length > 0
 
   if (!hasAnyData) return null
 
@@ -94,6 +97,7 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
     <div className="mb-8">
       <h2 className="mb-3 text-lg font-bold">Spend Trends</h2>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {/* "Monthly Spend Trend" — hidden, not deleted (needs monthlyData above re-enabled too).
         <ChartCard title="Monthly Spend Trend">
           {monthlyData.length === 0 ? (
             <EmptyChart />
@@ -111,9 +115,10 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
             </ResponsiveContainer>
           )}
         </ChartCard>
+        */}
 
         <ChartCard title="Quarterly Spend">
-          {quarterlyData.every((q) => q.Approved === 0 && q.Actual === 0) ? (
+          {quarterlyData.every((q) => q.Approved === 0) ? (
             <EmptyChart />
           ) : (
             <ResponsiveContainer width="100%" height={260}>
@@ -124,7 +129,7 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
                 <Tooltip formatter={(v: unknown) => formatMoney(v as number, data.display_currency)} />
                 <Legend />
                 <Bar dataKey="Approved" fill={CHART_COLORS[0]} />
-                <Bar dataKey="Actual" fill={CHART_COLORS[1]} />
+                {/* <Bar dataKey="Actual" fill={CHART_COLORS[1]} /> — re-enable once Actual figures are trustworthy */}
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -148,6 +153,7 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
           )}
         </ChartCard>
 
+        {/* "Average Monthly Spend by Category" — hidden, not deleted (needs categoryAverageData above re-enabled too).
         <ChartCard title="Average Monthly Spend by Category">
           {categoryAverageData.length === 0 ? (
             <EmptyChart />
@@ -168,6 +174,7 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
             </ResponsiveContainer>
           )}
         </ChartCard>
+        */}
       </div>
     </div>
   )

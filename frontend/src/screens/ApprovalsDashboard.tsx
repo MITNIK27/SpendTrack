@@ -37,7 +37,7 @@ export default function ApprovalsDashboard() {
       value: s,
       label: s.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase()),
       count: allPending.filter((sr) => sr.status === s).length,
-      dotClassName: "bg-chip-warning-fg",
+      dotClassName: "bg-chip-active-fg",
     })),
   ]
 
@@ -77,7 +77,7 @@ export default function ApprovalsDashboard() {
   return (
     <div>
       <div className="mb-6">
-        <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Approvals</div>
+        {/* <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Approvals</div> */}
         <h1 className="text-3xl font-bold">Pending Approvals</h1>
         <p className="mt-1 text-base text-muted-foreground">
           Select what to approve, add a remark if it's worth one, and click Approve.

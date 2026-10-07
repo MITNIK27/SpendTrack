@@ -235,12 +235,15 @@ def spend_summary(db: Session, filters: ReportFilters) -> SpendSummaryResponse:
     target_fiscal_year, matched = matching_spend_requests(db, filters)
     rate, rate_as_of, rate_is_stale = fx_service.get_usd_inr_rate()
 
+    total_requested = Decimal("0")
     total_approved = Decimal("0")
     total_actual = Decimal("0")
     by_category: dict[uuid.UUID, dict] = {}
     for row in matched:
+        requested = fx_service.convert(row.requested_amount, row.currency, filters.display_currency, rate)
         approved = fx_service.convert(row.approved_amount or Decimal("0"), row.currency, filters.display_currency, rate)
         actual = fx_service.convert(row.actual_amount or Decimal("0"), row.currency, filters.display_currency, rate)
+        total_requested += requested
         total_approved += approved
         total_actual += actual
 
@@ -263,6 +266,7 @@ def spend_summary(db: Session, filters: ReportFilters) -> SpendSummaryResponse:
         fx_rate_as_of=rate_as_of,
         fx_rate_is_stale=rate_is_stale,
         kpis=SpendSummaryKPIs(
+            fy_spend_requested=str(total_requested),
             fy_spend_approved=str(total_approved),
             fy_spend_actual=str(total_actual),
             fy_spend_available=str(total_approved - total_actual),
