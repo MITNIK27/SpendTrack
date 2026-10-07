@@ -245,20 +245,25 @@ export interface SearchInitiativeResult {
   status: InitiativeStatus
 }
 
-export interface SearchSpendRequestResult {
+/** One summary row per request — global search is request-first (see
+ * GlobalSearch.tsx): it never surfaces a bare spend-breakdown line, just
+ * enough of the parent request's own fields to tell results apart and
+ * render the same outcome badge used everywhere else (via deriveOutcome). */
+export interface SearchRequestResult {
   id: string
-  description: string | null
-  initiative_id: string
-  initiative_name: string
-  category_name: string
-  vendor: string | null
-  status: SpendRequestStatus
-  requested_amount: string
+  name: string
+  status: InitiativeStatus
+  budget_decision: InitiativeBudgetDecision | null
+  approval_progress: "not_started" | "partial" | "approved" | "rejected" | null
+  spend_request_count: number
+  category_name: string | null
+  estimated_total_budget: string | null
+  currency: "INR" | "USD"
+  owner_name: string | null
 }
 
 export interface SearchResponse {
-  initiatives: SearchInitiativeResult[]
-  spend_requests: SearchSpendRequestResult[]
+  requests: SearchRequestResult[]
 }
 
 export interface AlertItem {

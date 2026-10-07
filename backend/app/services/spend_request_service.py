@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.category import Category
-from app.models.spend_request import EDITABLE_STATUSES, SpendRequest
+from app.models.spend_request import EDITABLE_STATUSES, SUPPORTED_CURRENCIES, SpendRequest
 from app.models.spend_request_line_item import SpendRequestLineItem
 from app.models.user import User
 from app.services import activity_log_service, initiative_service, team_members_service
@@ -50,9 +50,13 @@ def create(db: Session, *, initiative, creator: User, data: dict) -> SpendReques
         subcategory = next((s for s in category.subcategories if s.id == subcategory_id), None)
         data["description"] = f"{category.name} – {subcategory.name}" if subcategory else category.name
 
-    # A spend request always uses its initiative's currency — there is no
-    # per-request currency choice in the UI.
-    data["currency"] = initiative.currency
+    # Each breakdown row may now carry its own currency (e.g. a USD leg within
+    # an otherwise-INR request) — default to the initiative's own currency
+    # when the row doesn't say otherwise.
+    currency = data.get("currency") or initiative.currency
+    if currency not in SUPPORTED_CURRENCIES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unsupported currency '{currency}'.")
+    data["currency"] = currency
 
     spend_request = SpendRequest(initiative_id=initiative.id, created_by_id=creator.id, status="draft", **data)
     spend_request.team_members = team_members_service.resolve(db, team_member_ids)
@@ -86,6 +90,9 @@ def update(db: Session, *, spend_request: SpendRequest, actor: User, data: dict)
     subcategory_id = data.get("subcategory_id", spend_request.subcategory_id)
     other_description = data.get("other_description", spend_request.other_description)
     _validate_category(db, category_id, subcategory_id, other_description)
+
+    if "currency" in data and data["currency"] not in SUPPORTED_CURRENCIES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unsupported currency '{data['currency']}'.")
 
     team_member_ids = data.pop("team_member_ids", None)
     line_items_data = data.pop("line_items", None)

@@ -31,6 +31,7 @@ from app.services import (
     spend_request_service,
     team_members_service,
 )
+from app.services import fx_service
 from app.services.initiative_visibility import is_initiative_visible, visible_initiatives_clause
 from app.services.spend_request_visibility import is_spend_request_visible, visible_spend_requests_clause
 
@@ -94,15 +95,32 @@ def _visible_spend_requests(initiative: Initiative, user: User) -> list:
 
 
 def _financial_summary(initiative: Initiative, spend_requests: list) -> InitiativeFinancialSummary:
+    # A breakdown row can carry its own currency (e.g. a USD leg within an
+    # otherwise-INR request) — only reach for a live/cached FX rate when a
+    # mix is actually present under this initiative.
+    needs_conversion = any(sr.currency != initiative.currency for sr in spend_requests)
+    rate = None
+    if needs_conversion:
+        rate, _, _ = fx_service.get_usd_inr_rate()
+
+    def conv(amount: Decimal | None, from_currency: str) -> Decimal | None:
+        if amount is None:
+            return None
+        if needs_conversion and from_currency != initiative.currency:
+            return fx_service.convert(amount, from_currency, initiative.currency, rate)
+        return amount
+
     total_requested = Decimal("0")
     total_approved = Decimal("0")
     total_actual = Decimal("0")
     for sr in spend_requests:
-        total_requested += sr.requested_amount
-        if sr.approved_amount is not None:
-            total_approved += sr.approved_amount
-        if sr.actual_amount is not None:
-            total_actual += sr.actual_amount
+        total_requested += conv(sr.requested_amount, sr.currency)
+        converted_approved = conv(sr.approved_amount, sr.currency)
+        if converted_approved is not None:
+            total_approved += converted_approved
+        converted_actual = conv(sr.actual_amount, sr.currency)
+        if converted_actual is not None:
+            total_actual += converted_actual
     # An initiative with no spend-breakdown rows of its own is decided
     # directly on its own budget (see decide_budget) — fold that in the same
     # way a spend request's requested/approved amount would be.
@@ -306,10 +324,10 @@ def delete_initiative(
     initiative = _get_owned_or_visible(db, initiative_id, user)
     if initiative.owner_id != user.id and user.role != "admin":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the owner or an admin can delete this initiative.")
-    if initiative_service.has_submitted_spend(db, initiative):
+    if initiative.status != "draft" or initiative_service.has_submitted_spend(db, initiative):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            "This initiative has spend requests that have already been submitted, "
+            "This initiative has already been submitted (or has spend requests that have), "
             "so it can no longer be deleted — only edited.",
         )
     activity_log_service.record(

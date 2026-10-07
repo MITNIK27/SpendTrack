@@ -10,7 +10,7 @@ import {
   validateSpendBreakdown,
   type SpendBreakdownValue,
 } from "@/components/SpendBreakdownFields"
-import { currencySymbol, type Currency } from "@/lib/money"
+import type { Currency } from "@/lib/money"
 import { useCategories, useCreateSpendRequest } from "@/api/queries"
 import { ApiError } from "@/api/client"
 
@@ -28,7 +28,7 @@ interface Props {
 export function InlineAddSpend({ initiativeId, currency, onClose }: Props) {
   const { data: categories, isLoading: categoriesLoading } = useCategories()
   const createSpendRequest = useCreateSpendRequest(initiativeId)
-  const [spend, setSpend] = useState<SpendBreakdownValue>(emptySpendBreakdown)
+  const [spend, setSpend] = useState<SpendBreakdownValue>({ ...emptySpendBreakdown, currency })
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -43,7 +43,7 @@ export function InlineAddSpend({ initiativeId, currency, onClose }: Props) {
     setSubmitting(true)
     try {
       await createSpendRequest.mutateAsync(buildSpendRequestPayload(spend))
-      setSpend(emptySpendBreakdown)
+      setSpend({ ...emptySpendBreakdown, currency })
       if (!andAddAnother) onClose()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't save this spend request.")
@@ -72,13 +72,13 @@ export function InlineAddSpend({ initiativeId, currency, onClose }: Props) {
       </div>
 
       <div className="border border-border">
-        <Table>
+        <Table className="table-fixed">
           <TableHeader className="hidden md:table-header-group">
             <TableRow>
-              <TableHead>What are you spending on?</TableHead>
-              <TableHead>Amount ({currencySymbol(currency)})</TableHead>
-              <TableHead>Remarks</TableHead>
-              <TableHead />
+              <TableHead className="w-[40%]">What are you spending on?</TableHead>
+              <TableHead className="w-40">Amount</TableHead>
+              <TableHead className="w-[34%]">Remarks</TableHead>
+              <TableHead className="w-20" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -87,6 +87,7 @@ export function InlineAddSpend({ initiativeId, currency, onClose }: Props) {
               onChange={setSpend}
               categories={categories}
               categoriesLoading={categoriesLoading}
+              initiativeCurrency={currency}
             />
           </TableBody>
         </Table>
@@ -95,13 +96,13 @@ export function InlineAddSpend({ initiativeId, currency, onClose }: Props) {
       {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <Button type="button" onClick={() => save(false)} disabled={submitting}>
+        <Button type="button" size="sm" onClick={() => save(false)} disabled={submitting}>
           {submitting ? "Saving…" : "Save"}
         </Button>
-        <Button type="button" variant="outline" onClick={() => save(true)} disabled={submitting}>
+        <Button type="button" variant="outline" size="sm" onClick={() => save(true)} disabled={submitting}>
           Save &amp; Add Another
         </Button>
-        <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+        <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={submitting}>
           Cancel
         </Button>
       </div>

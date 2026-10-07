@@ -56,6 +56,8 @@
     --color-chip-success-bg: var(--chip-success-bg);
     --color-chip-rejected-fg: var(--chip-rejected-fg);
     --color-chip-rejected-bg: var(--chip-rejected-bg);
+    --color-chip-active-fg: var(--chip-active-fg);
+    --color-chip-active-bg: var(--chip-active-bg);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -98,6 +100,7 @@
     --chip-warning-fg: #8c681f; --chip-warning-bg: #fff3d6;   /* 4.63:1 */
     --chip-success-fg: #0a6636; --chip-success-bg: #edfff5;   /* 6.82:1 */
     --chip-rejected-fg: #aa142d; --chip-rejected-bg: #fde3e7; /* 6.08:1 */
+    --chip-active-fg: #1d4e8c; --chip-active-bg: #e7f0ff;     /* "Submitted for Approval" — distinct from success green */
     /* Charts — InfoBeans palette */
     --chart-1: #ea1b3d;
     --chart-2: #0fa958;

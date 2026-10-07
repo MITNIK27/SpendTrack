@@ -30,7 +30,7 @@ export function useInitiativeBudgetDecision(initiativeId: string | undefined) {
     try {
       await decide.mutateAsync({ action, comment: remark.trim() || null })
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : `Couldn't ${action} this initiative's budget.`)
+      toast.error(err instanceof ApiError ? err.message : `Couldn't ${action} this request's budget.`)
     }
   }
 
@@ -68,7 +68,7 @@ export function InitiativeBudgetDecisionCard({ initiative, state, compact }: Pro
       }
     >
       <div className={compact ? "flex-1" : undefined}>
-        {!compact && <h3 className="text-lg font-bold">Initiative Budget Awaiting Approval</h3>}
+        {!compact && <h3 className="text-lg font-bold">Request Budget Awaiting Approval</h3>}
         <p className={compact ? "text-sm font-medium" : "text-sm text-muted-foreground"}>
           {compact && <span className="font-semibold">{initiative.name}</span>}
           {compact && " — "}

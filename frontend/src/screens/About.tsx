@@ -17,9 +17,9 @@ import { BrandLockup } from "@/components/BrandLockup"
 const MEMBER_STEPS = [
   {
     icon: FolderKanban,
-    title: "Start an Initiative",
+    title: "Start a Request",
     detail:
-      "Give your event, campaign, or sponsorship a name and a purpose. This becomes the home for every request raised against it.",
+      "Give your event, campaign, or sponsorship a name and a purpose. This becomes the home for every spend request raised against it.",
   },
   {
     icon: Receipt,
@@ -44,7 +44,7 @@ const MEMBER_STEPS = [
 const MEMBER_TIPS = [
   "Be specific in your justification — \"Booth at TechConf 2026, expected 400 leads\" clears review faster than \"marketing expense.\"",
   "Pick the closest category and subcategory — it's what feeds the leadership reports, and a mismatch is the most common reason for a request to bounce back.",
-  "One initiative can hold many requests — add a new one any time instead of inflating an existing, already-approved request.",
+  "One request can hold many spend requests — add a new one any time instead of inflating an existing, already-approved spend request.",
 ]
 
 const LEADERSHIP_RESPONSIBILITIES = [
@@ -78,9 +78,9 @@ const ADMIN_RESPONSIBILITY = {
 const FEATURES = [
   {
     icon: FolderKanban,
-    label: "Initiatives",
+    label: "Requests",
     detail:
-      "A marketing initiative never carries its own amount or status — it groups one or more independently-approvable spend requests underneath it.",
+      "A marketing request never carries its own amount or status — it groups one or more independently-approvable spend requests underneath it.",
   },
   {
     icon: Receipt,
@@ -90,7 +90,7 @@ const FEATURES = [
   {
     icon: Search,
     label: "One search box, everything",
-    detail: "Find an initiative or a spend request by id, description, vendor, category, or requester — instantly.",
+    detail: "Find a request or a spend request by id, description, vendor, category, or requester — instantly.",
   },
   {
     icon: Tags,
@@ -203,13 +203,13 @@ function LeadershipAbout({ isAdmin }: { isAdmin: boolean }) {
         </section>
 
         <section className="flex flex-col gap-3">
-          <SectionHeading>Why Initiative + Spend Request, not one flat "expense"</SectionHeading>
+          <SectionHeading>Why Request + Spend Request, not one flat "expense"</SectionHeading>
           <p className="max-w-3xl text-base text-muted-foreground">
-            An initiative — a conference, a sponsorship, a campaign — provides context. It never
+            A request — a conference, a sponsorship, a campaign — provides context. It never
             holds an amount or a status of its own; it groups one or more independently
             approvable spend requests, each carrying its own requested, approved, and actual
             amount and its own approval cycle. That separation is what keeps financial control
-            precise even as an initiative grows.
+            precise even as a request grows.
           </p>
         </section>
 

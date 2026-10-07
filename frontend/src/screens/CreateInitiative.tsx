@@ -15,22 +15,29 @@ import {
   type SpendBreakdownValue,
 } from "@/components/SpendBreakdownFields"
 import { api } from "@/api/client"
-import { useCategories, useCreateInitiative } from "@/api/queries"
-import { currencySymbol, formatMoney } from "@/lib/money"
+import { useCategories, useCreateInitiative, useFxRate } from "@/api/queries"
+import { convert } from "@/lib/fx"
+import { formatMoney } from "@/lib/money"
+import type { Currency } from "@/lib/money"
 import type { SpendRequest } from "@/types/domain"
 
 export default function CreateInitiative() {
   const navigate = useNavigate()
   const createInitiative = useCreateInitiative()
   const { data: categories, isLoading: categoriesLoading } = useCategories()
+  const { data: fx } = useFxRate()
   const [spends, setSpends] = useState<SpendBreakdownValue[]>([emptySpendBreakdown])
 
   const updateSpend = (index: number, value: SpendBreakdownValue) =>
     setSpends((rows) => rows.map((row, i) => (i === index ? value : row)))
-  const addSpend = () => setSpends((rows) => [...rows, emptySpendBreakdown])
+  const addSpend = (currency: Currency) => setSpends((rows) => [...rows, { ...emptySpendBreakdown, currency }])
   const removeSpend = (index: number) => setSpends((rows) => rows.filter((_, i) => i !== index))
 
-  const total = spends.reduce((sum, s) => sum + (Number(s.requestedAmount) || 0), 0)
+  const totalIn = (currency: Currency) =>
+    spends.reduce((sum, s) => {
+      const amt = Number(s.requestedAmount) || 0
+      return sum + (convert(amt, s.currency, currency, fx) ?? amt)
+    }, 0)
 
   /** Validates the entered spend rows, creates the initiative, then creates
    * each provided row under it as a draft — shared by both "Save as Draft"
@@ -58,8 +65,8 @@ export default function CreateInitiative() {
   return (
     <div className="mx-auto max-w-[720px]">
       <div className="mb-4">
-        <BackButton to="/" label="My Initiatives" />
-        <h1 className="text-3xl font-bold">New Marketing Initiative</h1>
+        <BackButton to="/" label="My Requests" />
+        <h1 className="text-3xl font-bold">New Marketing Request</h1>
       </div>
 
       <InitiativeForm
@@ -85,10 +92,10 @@ export default function CreateInitiative() {
             <h3 className="text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">Add Spend Breakdown</h3>
 
             <div className="border border-border bg-card">
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader className="hidden bg-muted/60 md:table-header-group">
                   <TableRow className="divide-x divide-border">
-                    <TableHead>
+                    <TableHead className="w-[40%]">
                       <span className="flex items-center gap-1.5">
                         What are you spending on?
                         <TooltipProvider>
@@ -106,9 +113,9 @@ export default function CreateInitiative() {
                         </TooltipProvider>
                       </span>
                     </TableHead>
-                    <TableHead>Amount ({currencySymbol(currency)})</TableHead>
-                    <TableHead>Remarks</TableHead>
-                    <TableHead />
+                    <TableHead className="w-40">Amount</TableHead>
+                    <TableHead className="w-[34%]">Remarks</TableHead>
+                    <TableHead className="w-20" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -120,20 +127,21 @@ export default function CreateInitiative() {
                       categories={categories}
                       categoriesLoading={categoriesLoading}
                       onDelete={spends.length > 1 ? () => removeSpend(i) : undefined}
+                      initiativeCurrency={currency}
                     />
                   ))}
                 </TableBody>
               </Table>
             </div>
 
-            <Button type="button" variant="outline" onClick={addSpend} className="self-start">
+            <Button type="button" variant="outline" onClick={() => addSpend(currency)} className="self-start">
               + Add Spend Breakdown
             </Button>
 
-            {total > 0 && (
+            {totalIn(currency) > 0 && (
               <div className="flex items-center justify-between border-t border-border pt-2 text-sm font-medium">
                 <span>Total</span>
-                <span className="tabular-nums">{formatMoney(String(total), currency)}</span>
+                <span className="tabular-nums">{formatMoney(String(totalIn(currency)), currency)}</span>
               </div>
             )}
           </div>

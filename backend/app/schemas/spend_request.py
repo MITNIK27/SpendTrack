@@ -30,7 +30,9 @@ class SpendRequestCreate(BaseModel):
     vendor: str | None = None
 
     requested_amount: Decimal = Field(gt=0)
-    currency: str = "INR"
+    # None (not "INR") lets the service tell "no currency chosen" apart from
+    # "explicitly chose INR" — it falls back to the initiative's own currency.
+    currency: str | None = None
 
     team_member_ids: list[uuid.UUID] = []
 

@@ -14,8 +14,8 @@ import { SpendTrendCharts } from "@/components/SpendTrendCharts"
 import { formatMoney } from "@/lib/money"
 import { fiscalYearOptions, currentFiscalYear, fyLabel } from "@/lib/fiscal"
 import { downloadFile, ApiError } from "@/api/client"
-import { useAlerts, useCategories, useInitiatives, useSpendRequests, useSpendSummary, spendSummaryQueryString } from "@/api/queries"
-import { PENDING_DECISION_STATUSES, type SpendSummaryFilters } from "@/types/domain"
+import { useAlerts, useCategories, useInitiatives, useSpendSummary, spendSummaryQueryString } from "@/api/queries"
+import type { SpendSummaryFilters } from "@/types/domain"
 
 const QUARTERS = [
   { value: "1", label: "Q1 (Apr–Jun)" },
@@ -47,7 +47,6 @@ const DEFAULT_FISCAL_YEAR = String(currentFiscalYear())
 export default function Dashboard() {
   const navigate = useNavigate()
   const { data: initiatives, isLoading: initiativesLoading } = useInitiatives()
-  const { data: spendRequests, isLoading: spendLoading } = useSpendRequests()
   const { data: alerts } = useAlerts()
   const { data: categories } = useCategories()
 
@@ -100,11 +99,9 @@ export default function Dashboard() {
 
   const kpis = useMemo(() => {
     const activeInitiatives = (initiatives ?? []).filter((i) => i.status === "active").length
-    const pending = (spendRequests ?? []).filter((sr) => PENDING_DECISION_STATUSES.includes(sr.status))
-    return { activeInitiatives, pending }
-  }, [initiatives, spendRequests])
+    return { activeInitiatives }
+  }, [initiatives])
 
-  const stateLoading = initiativesLoading || spendLoading
   const isFiltered =
     fiscalYear !== DEFAULT_FISCAL_YEAR || !!quarter || !!month || !!categoryId || !!requesterId || !!statusFilter
 
@@ -134,63 +131,52 @@ export default function Dashboard() {
         </Link>
       )}
 
-      {stateLoading ? (
-        <div className="mb-4 grid grid-cols-2 gap-3 sm:gap-4">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-24 w-full bg-muted motion-safe:animate-pulse" />
-          ))}
+      {initiativesLoading || isLoading ? (
+        <div className="mb-8 space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-24 w-full bg-muted motion-safe:animate-pulse" />
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            {[3, 4].map((i) => (
+              <div key={i} className="h-24 w-full bg-muted motion-safe:animate-pulse" />
+            ))}
+          </div>
         </div>
-      ) : (
-        <div className="mb-4 grid grid-cols-2 gap-3 sm:gap-4">
-          <KpiTile label="Active Initiatives" value={String(kpis.activeInitiatives)} onClick={() => navigate("/initiatives")} />
-          <KpiTile
-            label="Pending Approvals"
-            value={String(kpis.pending.length)}
-            highlight={kpis.pending.length > 0}
-            onClick={() => navigate("/approvals")}
-          />
-        </div>
-      )}
-
-      {isLoading && (
-        <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className={cn("h-24 w-full bg-muted motion-safe:animate-pulse", i === 3 && "col-span-2 sm:col-span-1")} />
-          ))}
-        </div>
-      )}
-
-      {isError && (
+      ) : isError ? (
         <div className="mb-8 border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
           Couldn't load the leadership report.
         </div>
-      )}
-
-      {data && (
-        <div className="mb-8">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-            <KpiTile
-              label={`${periodLabel} Approved`}
-              value={formatMoney(data.kpis.fy_spend_approved, data.display_currency)}
-              onClick={() => setDrilldown({ title: `${periodLabel} Approved — matching spend requests` })}
-            />
-            <KpiTile
-              label={`${periodLabel} Actual`}
-              value={formatMoney(data.kpis.fy_spend_actual, data.display_currency)}
-              onClick={() => setDrilldown({ title: `${periodLabel} Actual — matching spend requests` })}
-            />
-            <KpiTile
-              className="col-span-2 sm:col-span-1"
-              label={`${periodLabel} Available`}
-              value={formatMoney(data.kpis.fy_spend_available, data.display_currency)}
-              onClick={() => setDrilldown({ title: `${periodLabel} Available — matching spend requests` })}
-            />
+      ) : (
+        data && (
+          <div className="mb-8">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <KpiTile label="Submitted Requests" value={String(kpis.activeInitiatives)} onClick={() => navigate("/initiatives")} />
+              <KpiTile
+                label={`${periodLabel} Actual`}
+                value={formatMoney(data.kpis.fy_spend_actual, data.display_currency)}
+                onClick={() => setDrilldown({ title: `${periodLabel} Actual — matching spend requests` })}
+              />
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:mt-4 sm:gap-4">
+              <KpiTile
+                label={`${periodLabel} Approved`}
+                value={formatMoney(data.kpis.fy_spend_approved, data.display_currency)}
+                onClick={() => setDrilldown({ title: `${periodLabel} Approved — matching spend requests` })}
+              />
+              <KpiTile
+                label={`${periodLabel} Available`}
+                value={formatMoney(data.kpis.fy_spend_available, data.display_currency)}
+                onClick={() => setDrilldown({ title: `${periodLabel} Available — matching spend requests` })}
+              />
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Converted at 1 USD = ₹{data.fx_rate_usd_inr} (as of {data.fx_rate_as_of})
+              {data.fx_rate_is_stale && " — rate may be outdated, couldn't reach the live FX source"}
+            </p>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Converted at 1 USD = ₹{data.fx_rate_usd_inr} (as of {data.fx_rate_as_of})
-            {data.fx_rate_is_stale && " — rate may be outdated, couldn't reach the live FX source"}
-          </p>
-        </div>
+        )
       )}
 
       <div className="mb-8 flex items-center gap-2 overflow-x-auto border-y border-border py-3">

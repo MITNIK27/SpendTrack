@@ -56,7 +56,7 @@ export default function SpendRequestDetail() {
     <div className="mx-auto max-w-[840px]">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <BackButton to={`/initiatives/${sr.initiative_id}`} label="Back to Initiative" />
+          <BackButton to={`/initiatives/${sr.initiative_id}`} label="Back to Request" />
           <h1 className="mt-1 text-3xl font-bold">{sr.description ?? sr.category.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {sr.category.name}{sr.subcategory ? ` — ${sr.subcategory.name}` : ""}

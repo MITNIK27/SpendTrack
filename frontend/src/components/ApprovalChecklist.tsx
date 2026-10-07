@@ -541,7 +541,7 @@ export function RejectConfirmDialog({ state, spendRequests, initiativeName }: Re
           </DialogTitle>
           <DialogDescription>
             {isWholeInitiative
-              ? "Every pending spend request under this initiative will be rejected with the comment below."
+              ? "Every pending spend request under this request will be rejected with the comment below."
               : "The spend requests below will be rejected with the comment below."}
           </DialogDescription>
         </DialogHeader>

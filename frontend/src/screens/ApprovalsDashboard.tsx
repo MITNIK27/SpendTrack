@@ -120,7 +120,7 @@ export default function ApprovalsDashboard() {
 
       {!isLoading && !isError && pendingBudgets.length > 0 && (
         <div className="mb-6">
-          <h2 className="mb-2 text-lg font-bold">Initiative Budgets Awaiting Approval</h2>
+          <h2 className="mb-2 text-lg font-bold">Request Budgets Awaiting Approval</h2>
           <p className="mb-2 text-xs text-muted-foreground">
             These initiatives have no spend breakdown of their own — their whole requested budget is what's being
             decided.

@@ -1,11 +1,13 @@
+import re
+
 from sqlalchemy import String, cast, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.models.category import Category
 from app.models.initiative import Initiative
 from app.models.spend_request import SpendRequest
 from app.models.user import User
-from app.schemas.search import SearchInitiativeResult, SearchResponse, SearchSpendRequestResult
+from app.schemas.search import SearchRequestResult, SearchResponse
 from app.services.initiative_visibility import visible_initiatives_clause
 from app.services.spend_request_visibility import visible_spend_requests_clause
 
@@ -14,55 +16,73 @@ RESULT_LIMIT = 20
 
 
 def search(db: Session, *, query: str, user: User) -> SearchResponse:
+    """Global search is request-first: every match — whether it hit the
+    request's own name/category/owner/amount, or one of its spend-breakdown
+    rows' description/vendor/category — collapses to a single summary row
+    for the parent request. Never surfaces a bare breakdown line, so there's
+    no risk of a request's name and a breakdown item's text looking like two
+    separate, confusingly similar results."""
     query = query.strip()
     if len(query) < MIN_QUERY_LENGTH:
-        return SearchResponse(initiatives=[], spend_requests=[])
+        return SearchResponse(requests=[])
 
     pattern = f"%{query}%"
+    # Only digits/decimal point — lets "3,00,000" or "₹300000" still match an
+    # amount stored as a plain "300000.00", without the punctuation mattering.
+    amount_digits = re.sub(r"[^\d.]", "", query)
 
-    initiative_stmt = (
-        select(Initiative)
-        .where(Initiative.name.ilike(pattern))
-        .where(visible_initiatives_clause(user))
-        .order_by(Initiative.created_at.desc())
-        .limit(RESULT_LIMIT)
-    )
-    initiatives = db.scalars(initiative_stmt).all()
-
-    spend_request_stmt = (
-        select(SpendRequest)
+    breakdown_match = (
+        select(SpendRequest.initiative_id)
         .join(Category, SpendRequest.category_id == Category.id)
-        .join(User, SpendRequest.created_by_id == User.id)
         .where(visible_spend_requests_clause(user))
         .where(
             or_(
-                cast(SpendRequest.id, String).ilike(pattern),
                 SpendRequest.description.ilike(pattern),
                 SpendRequest.vendor.ilike(pattern),
                 Category.name.ilike(pattern),
-                User.name.ilike(pattern),
             )
         )
-        .order_by(SpendRequest.created_at.desc())
+    )
+
+    conditions = [
+        Initiative.name.ilike(pattern),
+        Initiative.id.in_(breakdown_match),
+        User.name.ilike(pattern),
+        Category.name.ilike(pattern),
+    ]
+    if amount_digits:
+        conditions.append(cast(Initiative.estimated_total_budget, String).ilike(f"%{amount_digits}%"))
+
+    stmt = (
+        select(Initiative)
+        .outerjoin(User, Initiative.owner_id == User.id)
+        .outerjoin(Category, Initiative.category_id == Category.id)
+        .options(
+            joinedload(Initiative.owner),
+            joinedload(Initiative.category),
+            selectinload(Initiative.spend_requests),
+        )
+        .where(visible_initiatives_clause(user))
+        .where(or_(*conditions))
+        .order_by(Initiative.created_at.desc())
         .limit(RESULT_LIMIT)
     )
-    spend_requests = db.scalars(spend_request_stmt).all()
+    initiatives = db.scalars(stmt).unique().all()
 
     return SearchResponse(
-        initiatives=[
-            SearchInitiativeResult(id=i.id, name=i.name, status=i.status) for i in initiatives
-        ],
-        spend_requests=[
-            SearchSpendRequestResult(
-                id=sr.id,
-                description=sr.description,
-                initiative_id=sr.initiative_id,
-                initiative_name=sr.initiative.name,
-                category_name=sr.category.name,
-                vendor=sr.vendor,
-                status=sr.status,
-                requested_amount=sr.requested_amount,
+        requests=[
+            SearchRequestResult(
+                id=i.id,
+                name=i.name,
+                status=i.status,
+                budget_decision=i.budget_decision,
+                approval_progress=i.approval_progress,
+                spend_request_count=i.spend_request_count,
+                category_name=i.category.name if i.category else None,
+                estimated_total_budget=i.estimated_total_budget,
+                currency=i.currency,
+                owner_name=i.owner.name if i.owner else None,
             )
-            for sr in spend_requests
-        ],
+            for i in initiatives
+        ]
     )

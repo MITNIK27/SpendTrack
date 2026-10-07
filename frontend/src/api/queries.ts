@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/api/client"
 import { getToken } from "@/auth/tokenStore"
+import type { FxRate } from "@/lib/fx"
 import type {
   ActivityLogEntry,
   AlertItem,
@@ -315,6 +316,19 @@ export function useGlobalSearch(q: string) {
     queryKey: ["search", trimmed],
     queryFn: () => api.get<SearchResponse>(`/search?q=${encodeURIComponent(trimmed)}`),
     enabled: trimmed.length >= 2,
+  })
+}
+
+/** The backend only refreshes this once a day (see fx_service.py) — a long
+ * staleTime means one fetch per session rather than one per keystroke/row. */
+export function useFxRate() {
+  return useQuery<FxRate>({
+    queryKey: ["fx", "usd-inr"],
+    queryFn: async () => {
+      const raw = await api.get<{ rate: string; as_of: string; is_stale: boolean }>("/fx/usd-inr")
+      return { rate: Number(raw.rate), asOf: raw.as_of, isStale: raw.is_stale }
+    },
+    staleTime: 24 * 60 * 60 * 1000,
   })
 }
 

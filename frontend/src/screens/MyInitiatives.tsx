@@ -111,16 +111,16 @@ export default function MyInitiatives() {
     <div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">{canCreate ? "My Initiatives" : "Initiatives"}</h1>
+          <h1 className="text-3xl font-bold">{canCreate ? "My Requests" : "Requests"}</h1>
           <p className="mt-1 text-base text-muted-foreground">
             {canCreate
-              ? "Group related marketing spend under an initiative, then add individual spend requests to it."
-              : "Browse every initiative — open one to review and decide on its spend requests."}
+              ? "Group related marketing spend under a request, then add individual spend requests to it."
+              : "Browse every request — open one to review and decide on its spend requests."}
           </p>
         </div>
         {canCreate && (
           <Button asChild>
-            <Link to="/initiatives/new">+ New Initiative</Link>
+            <Link to="/initiatives/new">+ New Request</Link>
           </Button>
         )}
       </div>
@@ -146,16 +146,16 @@ export default function MyInitiatives() {
           </div>
           <div>
             <h3 className="text-lg font-bold">
-              {canCreate ? "You haven't created any marketing initiatives yet." : "No marketing initiatives yet."}
+              {canCreate ? "You haven't created any requests yet." : "No requests yet."}
             </h3>
             <p className="text-sm text-muted-foreground">
-              An initiative is the umbrella for a conference, campaign, or activity
+              A request is the umbrella for a conference, campaign, or activity
               {canCreate ? " — create one, then add individual spend requests under it." : "."}
             </p>
           </div>
           {canCreate && (
             <Button asChild variant="outline">
-              <Link to="/initiatives/new">+ New Initiative</Link>
+              <Link to="/initiatives/new">+ New Request</Link>
             </Button>
           )}
         </div>
@@ -208,9 +208,9 @@ export default function MyInitiatives() {
           <Table className="hidden lg:table">
             <TableHeader className="bg-muted/60">
               <TableRow className="divide-x divide-border">
-                <SortableColumnHead label="Initiative" direction={nameSortDirection} onClick={cycleSortBy} className="px-4" />
-                <TableHead className="px-4">Type</TableHead>
-                <TableHead className="px-4">Budget</TableHead>
+                <SortableColumnHead label="Request" direction={nameSortDirection} onClick={cycleSortBy} className="px-4" />
+                <TableHead className="px-4">Category</TableHead>
+                <TableHead className="px-4">Total Budget</TableHead>
                 <TableHead className="px-4">Requested</TableHead>
                 <TableHead className="px-4">Approved</TableHead>
                 <FilterableColumnHead
@@ -226,6 +226,7 @@ export default function MyInitiatives() {
             <TableBody>
               {rows.map((initiative) => {
                 const isOwner = initiative.owner.id === user?.id
+                const deletable = deriveOutcome(initiative) === "draft"
                 return (
                   <TableRow key={initiative.id} className="cursor-pointer divide-x divide-border odd:bg-card even:bg-muted/25">
                     <TableCell className="px-4 py-1.5">
@@ -259,7 +260,9 @@ export default function MyInitiatives() {
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            aria-label={`Delete ${initiative.name}`}
+                            aria-label={deletable ? `Delete ${initiative.name}` : `Can't delete ${initiative.name} — already submitted`}
+                            title={deletable ? undefined : "Can't delete — already submitted"}
+                            disabled={!deletable}
                             onClick={() => {
                               setDeleteError(null)
                               setPendingDelete(initiative)
@@ -278,6 +281,7 @@ export default function MyInitiatives() {
           <div className="flex flex-col gap-3 p-3 lg:hidden">
             {rows.map((initiative) => {
               const isOwner = initiative.owner.id === user?.id
+              const deletable = deriveOutcome(initiative) === "draft"
               return (
                 <MobileRow key={initiative.id}>
                   <div className="flex items-baseline gap-2">
@@ -285,8 +289,8 @@ export default function MyInitiatives() {
                       {initiative.name}
                     </Link>
                   </div>
-                  <MobileField label="Type">{initiative.type ?? "—"}</MobileField>
-                  <MobileField label="Budget">{formatMoney(initiative.estimated_total_budget, initiative.currency)}</MobileField>
+                  <MobileField label="Category">{initiative.type ?? "—"}</MobileField>
+                  <MobileField label="Total Budget">{formatMoney(initiative.estimated_total_budget, initiative.currency)}</MobileField>
                   <MobileField label="Requested">
                     <span className={requestedIsOffBudget(initiative) ? "font-medium text-chip-warning-fg" : undefined}>
                       {formatMoney(initiative.total_requested_amount, initiative.currency)}
@@ -306,7 +310,9 @@ export default function MyInitiatives() {
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        aria-label={`Delete ${initiative.name}`}
+                        aria-label={deletable ? `Delete ${initiative.name}` : `Can't delete ${initiative.name} — already submitted`}
+                        title={deletable ? undefined : "Can't delete — already submitted"}
+                        disabled={!deletable}
                         onClick={() => {
                           setDeleteError(null)
                           setPendingDelete(initiative)
@@ -335,10 +341,10 @@ export default function MyInitiatives() {
           <Table className="hidden lg:table">
             <TableHeader className="bg-muted/60">
               <TableRow>
-                <SortableColumnHead label="Initiative" direction={nameSortDirection} onClick={cycleSortBy} className="px-5" />
+                <SortableColumnHead label="Request" direction={nameSortDirection} onClick={cycleSortBy} className="px-5" />
                 <TableHead className="px-5">Created By</TableHead>
-                <TableHead className="px-5">Type</TableHead>
-                <TableHead className="px-5">Budget</TableHead>
+                <TableHead className="px-5">Category</TableHead>
+                <TableHead className="px-5">Total Budget</TableHead>
                 <TableHead className="px-5">Requested</TableHead>
                 <TableHead className="px-5">Approved</TableHead>
                 <FilterableColumnHead
@@ -399,8 +405,8 @@ export default function MyInitiatives() {
                   </Link>
                 </div>
                 <MobileField label="Created By">{initiative.owner.name}</MobileField>
-                <MobileField label="Type">{initiative.type ?? "—"}</MobileField>
-                <MobileField label="Budget">{formatMoney(initiative.estimated_total_budget, initiative.currency)}</MobileField>
+                <MobileField label="Category">{initiative.type ?? "—"}</MobileField>
+                <MobileField label="Total Budget">{formatMoney(initiative.estimated_total_budget, initiative.currency)}</MobileField>
                 <MobileField label="Requested">
                   <span className={requestedIsOffBudget(initiative) ? "font-medium text-chip-warning-fg" : undefined}>
                     {formatMoney(initiative.total_requested_amount, initiative.currency)}
@@ -431,9 +437,9 @@ export default function MyInitiatives() {
             <DialogTitle>Delete "{pendingDelete?.name}"?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This permanently removes the initiative and any draft spend requests under it. This can't
-            be undone. If any spend request under it has already been submitted, deletion isn't
-            allowed — you can still edit the initiative instead.
+            This permanently removes the request and any draft spend requests under it. This can't
+            be undone. Only a request that's still saved as a draft can be deleted — once it's been
+            submitted, you can still edit it instead.
           </p>
           {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
           <DialogFooter>

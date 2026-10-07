@@ -24,6 +24,10 @@ SPEND_REQUEST_STATUSES = (
 # Statuses in which the financial fields (amount, category, ...) may still be edited.
 EDITABLE_STATUSES = ("draft", "changes_requested")
 
+# The only two currencies the app understands anywhere (fx_service.convert()
+# and the frontend's Currency type are both hardcoded to this pair).
+SUPPORTED_CURRENCIES = ("INR", "USD")
+
 
 class SpendRequest(Base):
     __tablename__ = "spend_requests"

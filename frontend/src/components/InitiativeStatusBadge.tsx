@@ -4,9 +4,9 @@ import type { Initiative } from "@/types/domain"
 export type InitiativeOutcome = "draft" | "archived" | "active" | "approved" | "rejected" | "partial"
 
 export const OUTCOME_LABELS: Record<InitiativeOutcome, string> = {
-  draft: "Draft",
+  draft: "Saved",
   archived: "Archived",
-  active: "Active",
+  active: "Submitted for Approval",
   approved: "Approved",
   rejected: "Rejected",
   partial: "Partially Approved",
@@ -15,7 +15,7 @@ export const OUTCOME_LABELS: Record<InitiativeOutcome, string> = {
 const clsMap: Record<InitiativeOutcome, string> = {
   draft: "bg-muted text-muted-foreground",
   archived: "bg-muted text-muted-foreground",
-  active: "bg-chip-success-bg text-chip-success-fg",
+  active: "bg-chip-active-bg text-chip-active-fg",
   approved: "bg-chip-success-bg text-chip-success-fg",
   rejected: "bg-chip-rejected-bg text-chip-rejected-fg",
   partial: "bg-chip-warning-bg text-chip-warning-fg",
@@ -27,7 +27,7 @@ const clsMap: Record<InitiativeOutcome, string> = {
 export const OUTCOME_DOT_CLASS: Record<InitiativeOutcome, string> = {
   draft: "bg-muted-foreground",
   archived: "bg-muted-foreground",
-  active: "bg-chip-success-fg",
+  active: "bg-chip-active-fg",
   approved: "bg-chip-success-fg",
   rejected: "bg-chip-rejected-fg",
   partial: "bg-chip-warning-fg",
@@ -38,7 +38,11 @@ export const OUTCOME_DOT_CLASS: Record<InitiativeOutcome, string> = {
  * badge reflects that outcome (Approved/Rejected/Partially Approved)
  * instead of the raw draft/active/closed/archived lifecycle status, which
  * conflates "closed because approved" with "closed because rejected". */
-export function InitiativeStatusBadge({ initiative }: { initiative: Initiative }) {
+export function InitiativeStatusBadge({
+  initiative,
+}: {
+  initiative: Pick<Initiative, "status" | "budget_decision" | "approval_progress" | "spend_request_count">
+}) {
   const outcome = deriveOutcome(initiative)
   return (
     <span className={cn(
@@ -51,8 +55,12 @@ export function InitiativeStatusBadge({ initiative }: { initiative: Initiative }
 
 /** Exported so filter UI (e.g. the Initiatives list's status filter) can
  * offer/match exactly the categories this badge actually renders, instead
- * of the raw draft/active/closed/archived lifecycle status. */
-export function deriveOutcome(initiative: Initiative): InitiativeOutcome {
+ * of the raw draft/active/closed/archived lifecycle status. Takes just the
+ * four fields it actually needs (not the full Initiative) so a lighter
+ * shape — e.g. a global search result row — can reuse it too. */
+export function deriveOutcome(
+  initiative: Pick<Initiative, "status" | "budget_decision" | "approval_progress" | "spend_request_count">,
+): InitiativeOutcome {
   if (initiative.status === "draft") return "draft"
   if (initiative.status === "archived") return "archived"
 

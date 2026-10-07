@@ -109,9 +109,33 @@ class Initiative(Base):
             return "not_started"
         return "partial"
 
+    def _sum_converted(self, rows: list, attr: str) -> Decimal:
+        """Sums `attr` (e.g. "requested_amount") off each row, converting any
+        row whose own `currency` differs from this initiative's into it first.
+        A breakdown row can now carry its own currency (e.g. a USD leg within
+        an otherwise-INR request), so a plain sum would silently add up
+        mismatched currencies. Only reaches for a live/cached FX rate when a
+        mix is actually present — the common single-currency case stays exactly
+        as cheap as a bare sum()."""
+        amounts = [(getattr(r, attr), r.currency) for r in rows if getattr(r, attr) is not None]
+        needs_conversion = any(cur != self.currency for _, cur in amounts)
+        total = Decimal("0")
+        if not needs_conversion:
+            for amount, _ in amounts:
+                total += amount
+            return total
+
+        from app.services import fx_service  # local: models shouldn't import services at module scope
+
+        rate, _, _ = fx_service.get_usd_inr_rate()
+        for amount, cur in amounts:
+            total += fx_service.convert(amount, cur, self.currency, rate)
+        return total
+
     @property
     def total_requested_amount(self) -> Decimal | None:
-        """Sum of every submitted spend request's requested_amount, or None
+        """Sum of every submitted spend request's requested_amount (converted
+        into this initiative's own currency where a row's differs), or None
         when there's no breakdown at all yet — lets a caller tell "nothing
         requested" apart from "zero requested". Mirrors spend_request_count's
         simplification of summing over every spend request rather than only
@@ -121,20 +145,20 @@ class Initiative(Base):
         submitted = self._submitted_spend_requests
         if not submitted:
             return None
-        return sum((sr.requested_amount for sr in submitted), start=Decimal("0"))
+        return self._sum_converted(submitted, "requested_amount")
 
     @property
     def total_approved_amount(self) -> Decimal:
         """Sum of every submitted spend request's approved_amount (skipping
-        any not yet decided), or — for an initiative with no breakdown of its
-        own — its own approved budget, if its budget has been approved.
+        any not yet decided, converting into this initiative's own currency
+        where a row's differs), or — for an initiative with no breakdown of
+        its own — its own approved budget, if its budget has been approved.
         Mirrors the same fallback `_financial_summary` uses on the detail
         endpoint, so this always lines up with what that page shows."""
         submitted = self._submitted_spend_requests
         if submitted:
-            return sum(
-                (sr.approved_amount for sr in submitted if sr.approved_amount is not None),
-                start=Decimal("0"),
+            return self._sum_converted(
+                [sr for sr in submitted if sr.approved_amount is not None], "approved_amount"
             )
         if self.budget_decision == "approved" and self.budget_approved_amount is not None:
             return self.budget_approved_amount

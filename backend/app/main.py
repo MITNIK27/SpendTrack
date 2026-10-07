@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from starlette.background import BackgroundTask
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api.routes import activity, admin, auth, categories, initiatives, reports, search, spend_requests, users
+from app.api.routes import activity, admin, auth, categories, fx, initiatives, reports, search, spend_requests, users
 from app.core.config import settings
 from app.core.logging_config import configure_logging
 from app.services import email_service, email_templates, error_alert_service
@@ -127,6 +127,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 app.include_router(auth.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
+app.include_router(fx.router, prefix="/api")
 app.include_router(initiatives.router, prefix="/api")
 app.include_router(spend_requests.router, prefix="/api")
 app.include_router(activity.router, prefix="/api")

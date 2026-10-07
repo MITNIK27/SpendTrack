@@ -25,13 +25,13 @@ interface NavGroup {
 function useNavGroups(role: "member" | "approver" | "admin"): NavGroup[] {
   const myWork: NavGroup = {
     title: "",
-    items: [{ to: "/", label: "My Initiatives", icon: FolderKanban, end: true }],
+    items: [{ to: "/", label: "My Requests", icon: FolderKanban, end: true }],
   }
   const overview: NavGroup = {
     title: "Overview",
     items: [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },
-      { to: "/initiatives", label: "Initiatives", icon: FolderKanban },
+      { to: "/initiatives", label: "Requests", icon: FolderKanban },
     ],
   }
   const approvals: NavGroup = {

@@ -4,23 +4,18 @@ from decimal import Decimal
 from pydantic import BaseModel
 
 
-class SearchInitiativeResult(BaseModel):
+class SearchRequestResult(BaseModel):
     id: uuid.UUID
     name: str
     status: str
-
-
-class SearchSpendRequestResult(BaseModel):
-    id: uuid.UUID
-    description: str | None
-    initiative_id: uuid.UUID
-    initiative_name: str
-    category_name: str
-    vendor: str | None
-    status: str
-    requested_amount: Decimal
+    budget_decision: str | None
+    approval_progress: str | None
+    spend_request_count: int
+    category_name: str | None
+    estimated_total_budget: Decimal | None
+    currency: str
+    owner_name: str | None
 
 
 class SearchResponse(BaseModel):
-    initiatives: list[SearchInitiativeResult]
-    spend_requests: list[SearchSpendRequestResult]
+    requests: list[SearchRequestResult]

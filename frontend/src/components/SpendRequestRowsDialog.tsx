@@ -55,7 +55,7 @@ export function SpendRequestRowsDialog({ open, onOpenChange, title, filters }: P
                 <TableHeader>
                   <TableRow>
                     <TableHead>Description</TableHead>
-                    <TableHead>Initiative</TableHead>
+                    <TableHead>Request</TableHead>
                     <TableHead>Requester</TableHead>
                     <TableHead>Requested</TableHead>
                     <TableHead>Approved</TableHead>
@@ -106,7 +106,7 @@ export function SpendRequestRowsDialog({ open, onOpenChange, title, filters }: P
                         {row.description}
                       </Link>
                     </div>
-                    <MobileField label="Initiative">
+                    <MobileField label="Request">
                       <Link to={`/initiatives/${row.initiative_id}`} className="hover:underline">
                         {row.initiative_name}
                       </Link>
