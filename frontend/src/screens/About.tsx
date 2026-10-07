@@ -112,7 +112,7 @@ function Hero({ tagline }: { tagline: string }) {
       <div className="relative max-w-2xl">
         <div className="text-xs font-medium uppercase tracking-[0.2em] text-white/70">About</div>
         <div className="mt-3">
-          <BrandLockup on="dark" size="lg" />
+          <BrandLockup on="dark" size="lg" variant="icon" />
         </div>
         <p className="mt-5 text-base font-light text-white/85">{tagline}</p>
       </div>

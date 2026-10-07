@@ -16,6 +16,7 @@ export function BrandLockup({
   logo = true,
   logoPosition = "after",
   variant = "cobrand",
+  showIcon = false,
   className,
 }: {
   on?: "light" | "dark"
@@ -23,12 +24,17 @@ export function BrandLockup({
   logo?: boolean
   logoPosition?: "before" | "after"
   variant?: "cobrand" | "icon"
+  /** Shows SpendTrack's own $ icon next to the wordmark in "cobrand" mode too
+   * (it's always shown in "icon" mode already) — for places that want both
+   * SpendTrack's own mark and the InfoBeans co-brand logo together. */
+  showIcon?: boolean
   className?: string
 }) {
   const isDark = on === "dark"
   const isLarge = size === "lg"
   const isMedium = size === "md"
   const isIcon = variant === "icon"
+  const withIcon = isIcon || showIcon
 
   const wordmark = (
     <div className="flex min-w-0 flex-col">
@@ -50,17 +56,21 @@ export function BrandLockup({
     </div>
   )
 
+  const wordmarkWithIcon = withIcon ? (
+    <div className={cn("flex min-w-0 items-center", isLarge ? "gap-4" : isMedium ? "gap-1.5" : "gap-2")}>
+      <img
+        src={brandIcon}
+        alt="SpendTrack"
+        className={cn("shrink-0", isLarge ? "size-10" : isMedium ? "size-7" : "size-6")}
+      />
+      {wordmark}
+    </div>
+  ) : (
+    wordmark
+  )
+
   if (isIcon) {
-    return (
-      <div className={cn("flex min-w-0 items-center", isLarge ? "gap-4" : isMedium ? "gap-1.5" : "gap-2", className)}>
-        <img
-          src={brandIcon}
-          alt="SpendTrack"
-          className={cn("shrink-0", isLarge ? "size-10" : isMedium ? "size-7" : "size-6")}
-        />
-        {wordmark}
-      </div>
-    )
+    return <div className={cn("flex min-w-0 items-center", className)}>{wordmarkWithIcon}</div>
   }
 
   const divider = <span className={cn("self-stretch w-px shrink-0", isDark ? "bg-white/20" : "bg-border")} />
@@ -74,7 +84,7 @@ export function BrandLockup({
           {divider}
         </>
       )}
-      {wordmark}
+      {wordmarkWithIcon}
       {logo && logoPosition === "after" && (
         <>
           {divider}

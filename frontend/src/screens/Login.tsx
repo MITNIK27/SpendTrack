@@ -38,11 +38,11 @@ export default function Login() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <main className="mx-auto flex w-full max-w-[420px] flex-1 flex-col items-center justify-center gap-8 p-8">
-        <BrandLockup on="light" />
+        <BrandLockup variant="icon" size="lg" />
         <Card className="w-full">
           <CardHeader>
             <CardTitle className="text-xl">Sign in to {APP_NAME}</CardTitle>
-            <CardDescription>Use your InfoBeans Google account to continue.</CardDescription>
+            <CardDescription>Use your InfoBeans credentials to get in</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <Button onClick={handleSignIn} disabled={isSigningIn} className="w-full">

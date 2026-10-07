@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { cn } from "cn"
-import { TriangleAlert, Download, RotateCcw, ChevronDown, ChevronRight } from "lucide-react"
+import { Bell, Download, RotateCcw, ChevronDown, ChevronRight } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { MobileRow, MobileField } from "@/components/ui/mobile-card-row"
 import { Button } from "@/components/ui/button"
@@ -120,24 +120,27 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {alerts && alerts.length > 0 && (
-        <Link
-          to="/approvals"
-          className={`mb-8 flex items-center gap-3 border px-4 py-3 text-sm transition-colors ${
-            alerts.some((a) => a.severity === "critical")
-              ? "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20"
-              : "border-chip-warning-fg bg-chip-warning-bg text-chip-warning-fg hover:bg-chip-warning-fg/20"
-          }`}
-        >
-          <TriangleAlert className="size-4 shrink-0" />
-          <span>
-            {alerts.length} item{alerts.length === 1 ? "" : "s"} need{alerts.length === 1 ? "s" : ""} your decision.
-          </span>
-          <span className="ml-auto flex items-center gap-1 text-xs font-medium">
-            Review now <ChevronRight className="size-3.5" />
-          </span>
-        </Link>
-      )}
+      {alerts && alerts.length > 0 && (() => {
+        const isCritical = alerts.some((a) => a.severity === "critical")
+        return (
+          <Link
+            to="/approvals"
+            className={`group mb-8 flex items-center gap-3 border px-4 py-3 text-sm transition-colors ${
+              isCritical
+                ? "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20"
+                : "border-chip-warning-fg bg-chip-warning-bg text-chip-warning-fg hover:bg-chip-warning-fg/20"
+            }`}
+          >
+            <Bell className="size-4 shrink-0" />
+            <span>
+              {alerts.length} item{alerts.length === 1 ? "" : "s"} need{alerts.length === 1 ? "s" : ""} your decision.
+            </span>
+            <span className="ml-auto flex items-center gap-1 rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-white transition-colors group-hover:bg-destructive/90">
+              Review now <ChevronRight className="size-3.5" />
+            </span>
+          </Link>
+        )
+      })()}
 
       {initiativesLoading || isLoading ? (
         <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4">
@@ -324,7 +327,7 @@ export default function Dashboard() {
                       className="cursor-pointer hover:bg-secondary/40"
                       onClick={() =>
                         setDrilldown({
-                          title: `${row.category_code}. ${row.category_name} — matching spend requests`,
+                          title: `${row.category_code}. ${row.category_name}`,
                           categoryId: row.category_id,
                         })
                       }
@@ -344,7 +347,7 @@ export default function Dashboard() {
                     key={row.category_id}
                     onClick={() =>
                       setDrilldown({
-                        title: `${row.category_code}. ${row.category_name} — matching spend requests`,
+                        title: `${row.category_code}. ${row.category_name}`,
                         categoryId: row.category_id,
                       })
                     }

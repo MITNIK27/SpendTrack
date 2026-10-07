@@ -24,6 +24,40 @@ const CHART_COLORS = [
   "var(--color-chart-5)",
 ]
 
+// One fixed color per category code (A-Q) — assigned by position in the
+// alphabet rather than by order of appearance, so a given category keeps the
+// same color across filter changes instead of reshuffling whenever the mix
+// of categories with spend changes. Built from exactly 4 hue families — red,
+// green, yellow, blue — each with 4-5 shades to cover all 17 codes. The
+// families are interleaved (round-robin) rather than grouped, so two
+// same-hue shades never land next to each other alphabetically (an earlier
+// attempt put near-identical reds on E and Q, which were indistinguishable
+// in the chart).
+const CATEGORY_COLORS = [
+  "#ea1b3d", // A — red (bright)
+  "#0fa958", // B — green (bright)
+  "#ecb547", // C — yellow (bright)
+  "#aa142d", // D — red (dark)
+  "#4272FF", // E — blue (Travel & Accommodation, pinned per stakeholder request)
+  "#0d8244", // F — green (dark)
+  "#bf8208", // G — yellow (dark gold)
+  "#4a6fa5", // H — blue (medium)
+  "#c53030", // I — red (medium)
+  "#3f6b4e", // J — green (forest)
+  "#8c681f", // K — yellow (brown-gold)
+  "#7fa8d9", // L — blue (pale)
+  "#eb4c5e", // M — red (soft)
+  "#6fae8c", // N — green (soft)
+  "#d9a441", // O — yellow (pale gold)
+  "#0a3d73", // P — blue (deep)
+  "#a8692a", // Q — yellow (terracotta)
+]
+
+function categoryColor(code: string): string {
+  const index = code.toUpperCase().charCodeAt(0) - "A".charCodeAt(0)
+  return CATEGORY_COLORS[((index % CATEGORY_COLORS.length) + CATEGORY_COLORS.length) % CATEGORY_COLORS.length]
+}
+
 const QUARTER_LABELS: Record<number, string> = {
   1: "Q1 (Apr–Jun)",
   2: "Q2 (Jul–Sep)",
@@ -76,9 +110,10 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
     // Actual: n(q.actual), — re-enable once Actual figures are trustworthy
   }))
 
-  const pieData = byCategory
+  const categoryShareData = byCategory
     .filter((c) => n(c.approved) > 0)
-    .map((c) => ({ name: `${c.category_code}. ${c.category_name}`, value: n(c.approved) }))
+    .map((c) => ({ code: c.category_code, name: c.category_name, value: n(c.approved) }))
+    .sort((a, b) => b.value - a.value)
 
   // "Average Monthly Spend by Category" chart data — hidden, not deleted,
   // alongside its ChartCard below.
@@ -89,7 +124,7 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
   //   "Avg Monthly Actual": n(c.average_monthly_actual),
   // }))
 
-  const hasAnyData = pieData.length > 0 || quarterlyData.length > 0
+  const hasAnyData = categoryShareData.length > 0 || quarterlyData.length > 0
 
   if (!hasAnyData) return null
 
@@ -136,20 +171,35 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
         </ChartCard>
 
         <ChartCard title="Category-wise Spend Share">
-          {pieData.length === 0 ? (
+          {categoryShareData.length === 0 ? (
             <EmptyChart />
           ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <PieChart>
-                <Tooltip formatter={(v: unknown) => formatMoney(v as number, data.display_currency)} />
-                <Legend />
-                <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={2}>
-                  {pieData.map((entry, i) => (
-                    <Cell key={entry.name} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="flex items-center gap-3">
+              <ResponsiveContainer width="55%" height={220}>
+                <PieChart>
+                  <Tooltip
+                    formatter={(value: unknown, name: unknown, entry: { payload?: { percent?: number } }) => {
+                      const percent = entry?.payload?.percent
+                      const suffix = typeof percent === "number" ? ` (${Math.round(percent * 100)}%)` : ""
+                      return [`${formatMoney(value as number, data.display_currency)}${suffix}`, name as string]
+                    }}
+                  />
+                  <Pie data={categoryShareData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={2}>
+                    {categoryShareData.map((entry) => (
+                      <Cell key={entry.code} fill={categoryColor(entry.code)} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <ul className="flex min-w-0 flex-1 flex-col gap-1.5 text-xs">
+                {categoryShareData.map((entry) => (
+                  <li key={entry.code} className="flex items-center gap-2">
+                    <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: categoryColor(entry.code) }} />
+                    <span className="truncate text-muted-foreground">{entry.name}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </ChartCard>
 
@@ -180,9 +230,17 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
   )
 }
 
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+function ChartCard({
+  title,
+  children,
+  className,
+}: {
+  title: string
+  children: React.ReactNode
+  className?: string
+}) {
   return (
-    <div className="border border-border bg-card p-4">
+    <div className={`border border-border bg-card p-4 ${className ?? ""}`}>
       <h3 className="mb-2 text-sm font-bold">{title}</h3>
       {children}
     </div>
