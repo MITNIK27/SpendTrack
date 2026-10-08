@@ -90,11 +90,30 @@ class Initiative(Base):
         return len(self._submitted_spend_requests)
 
     @property
+    def category_ids(self) -> list[uuid.UUID]:
+        """Distinct category ids this initiative's spend actually falls under —
+        one per submitted breakdown row's own category (not this initiative's
+        own category_id, which only matters when there's no breakdown yet).
+        Mirrors report_service's own category attribution (category_id=sr.category_id
+        for a breakdown row, falling back to the initiative's own category_id only
+        when it has none), so the Requests page's Category filter agrees with what
+        the Dashboard's "Spend by Category" table actually counted — clicking a
+        category there is expected to land here on exactly those initiatives."""
+        submitted = self._submitted_spend_requests
+        if submitted:
+            return list({sr.category_id for sr in submitted})
+        return [self.category_id] if self.category_id else []
+
+    @property
     def approval_progress(self) -> str | None:
         """"not_started" | "partial" | "approved" | "rejected" across this initiative's
         spend-breakdown rows, or None when there's no breakdown to judge (a budget-only
         initiative keeps using budget_decision instead — this is purely a display signal,
-        never stored)."""
+        never stored). "partial" is reserved for a genuine mix that includes at least
+        one approval — some rejected with the rest still untouched (zero approved) is
+        not "partial", it's still "not_started": no approval decision has actually been
+        made yet, so the request stays "Approval Pending" rather than reading as
+        partially approved."""
         submitted = self._submitted_spend_requests
         if not submitted:
             return None
@@ -105,7 +124,7 @@ class Initiative(Base):
             return "approved"
         if rejected == total:
             return "rejected"
-        if approved == 0 and rejected == 0:
+        if approved == 0:
             return "not_started"
         return "partial"
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Search, X } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 
 export interface ComboboxOption {
@@ -23,6 +24,9 @@ interface Props {
   /** Label of the currently selected option, shown when the field isn't focused
    * (the option itself may not be in the current filtered `options` list). */
   selectedLabel?: string
+  /** Extra classes for the input itself — e.g. a caller sizing it to match
+   * taller neighboring fields. */
+  inputClassName?: string
 }
 
 /** A type-to-search select — for a directory (Requester) or a list (Initiative)
@@ -47,11 +51,24 @@ export function SearchableCombobox({
   placeholder,
   emptyMessage = "No matches.",
   selectedLabel,
+  inputClassName,
 }: Props) {
   const [open, setOpen] = useState(false)
   const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null)
+  const [highlighted, setHighlighted] = useState(0)
   const wrapRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([])
+
+  // Keep the highlighted option in range as the (filtered) list changes —
+  // e.g. typing narrows from 8 matches down to 2.
+  useEffect(() => {
+    setHighlighted(0)
+  }, [options])
+
+  useEffect(() => {
+    optionRefs.current[highlighted]?.scrollIntoView({ block: "nearest" })
+  }, [highlighted])
 
   useEffect(() => {
     if (!open) return
@@ -112,8 +129,24 @@ export function SearchableCombobox({
           setOpen(true)
         }}
         onFocus={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (!open) return
+          if (e.key === "ArrowDown") {
+            e.preventDefault()
+            setHighlighted((i) => Math.min(i + 1, options.length - 1))
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault()
+            setHighlighted((i) => Math.max(i - 1, 0))
+          } else if (e.key === "Enter") {
+            e.preventDefault()
+            const option = options[highlighted]
+            if (option) select(option)
+          } else if (e.key === "Escape") {
+            setOpen(false)
+          }
+        }}
         placeholder={placeholder}
-        className="pl-8 pr-7"
+        className={cn("pl-8 pr-7", inputClassName)}
       />
       {value && !open && (
         <button
@@ -130,6 +163,13 @@ export function SearchableCombobox({
         createPortal(
           <div
             ref={dropdownRef}
+            // Marks this as "not really outside" to any enclosing Radix
+            // Dialog/Sheet — see the onPointerDownOutside guard those pass,
+            // which checks for this attribute. Without it, a Dialog treats a
+            // tap in here (portaled to <body>, outside its own content tree)
+            // as an outside interaction and intercepts it before our own
+            // onClick/onTouchEnd ever fires.
+            data-combobox-portal
             style={{ position: "fixed", top: rect.top, left: rect.left, width: rect.width }}
             className="z-50 mt-1 max-h-64 overflow-y-auto border border-border bg-card shadow-md"
           >
@@ -138,12 +178,28 @@ export function SearchableCombobox({
               <p className="px-3 py-2 text-sm text-muted-foreground">{emptyMessage}</p>
             )}
             {!isLoading &&
-              options.map((o) => (
+              options.map((o, i) => (
                 <button
                   key={o.id}
+                  ref={(el) => { optionRefs.current[i] = el }}
                   type="button"
+                  onMouseEnter={() => setHighlighted(i)}
                   onClick={() => select(o)}
-                  className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-secondary/50"
+                  // On a touch device, preventing default on touchend stops the
+                  // browser from also synthesizing a follow-up mousedown/click
+                  // at the same screen coordinates — without this, the option
+                  // (and this whole dropdown) unmounts the instant it's tapped,
+                  // and that synthetic click lands on whatever control is now
+                  // exposed underneath (e.g. a Select sitting right below this
+                  // combobox in a filter sheet), silently toggling it instead.
+                  onTouchEnd={(e) => {
+                    e.preventDefault()
+                    select(o)
+                  }}
+                  className={cn(
+                    "flex w-full flex-col px-3 py-2 text-left text-sm",
+                    i === highlighted ? "bg-secondary/50" : "hover:bg-secondary/50",
+                  )}
                 >
                   <span>
                     {o.label}

@@ -1,8 +1,7 @@
 import { Link, NavLink } from "react-router-dom"
-import { LayoutDashboard, ClipboardCheck, ShieldCheck, FolderKanban, Users, PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import { LayoutDashboard, ClipboardCheck, ShieldCheck, FolderKanban, Users, PanelLeftClose, PanelLeftOpen, Info } from "lucide-react"
 import { BrandLockup } from "@/components/BrandLockup"
 import { landingPathForRole } from "@/auth/roleRouting"
-import { APP_VERSION } from "@/lib/app-meta"
 import { cn } from "@/lib/utils"
 
 interface NavItem {
@@ -150,11 +149,26 @@ export function AppSidebar({
           </div>
         ))}
       </nav>
-      {!collapsed && (
-        <div className="border-t border-white/10 px-4 py-3 text-[11px] text-white/35">
-          Version {APP_VERSION}
-        </div>
-      )}
+      {/* Fixed to the same height as AppFooter.tsx's own sm:h-14 band, so the
+         two border-top lines land at the same Y position across the sidebar/
+         content boundary instead of drifting apart whenever their text
+         happens to need a different line-height. */}
+      <div className="h-14 border-t border-white/8">
+        <NavLink
+          to="/about"
+          onClick={onNavigate}
+          title={collapsed ? "About SpendTrack" : undefined}
+          className={({ isActive }) => cn(
+            "flex h-full w-full items-center gap-2 px-4 text-sm text-white/60 transition-colors duration-200",
+            "hover:bg-white/6 hover:text-white",
+            isActive && "bg-white/10 text-white",
+            collapsed && "justify-center px-0",
+          )}
+        >
+          <Info className="size-4 shrink-0" />
+          {!collapsed && <span>About SpendTrack</span>}
+        </NavLink>
+      </div>
     </aside>
   )
 }

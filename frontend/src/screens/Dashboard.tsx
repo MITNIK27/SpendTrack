@@ -1,48 +1,15 @@
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { toast } from "sonner"
 import { cn } from "cn"
-import { Bell, Download, RotateCcw, ChevronDown, ChevronRight } from "lucide-react"
+import { Bell, ChevronRight } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { MobileRow, MobileField } from "@/components/ui/mobile-card-row"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { RequesterCombobox } from "@/components/RequesterCombobox"
-import { SpendRequestRowsDialog } from "@/components/SpendRequestRowsDialog"
+import { MobileRow } from "@/components/ui/mobile-card-row"
 import { SpendTrendCharts } from "@/components/SpendTrendCharts"
 import { formatMoney } from "@/lib/money"
-import { fiscalYearOptions, currentFiscalYear, fyLabel } from "@/lib/fiscal"
-import { downloadFile, ApiError } from "@/api/client"
-import { useAlerts, useCategories, useInitiatives, useSpendSummary, spendSummaryQueryString } from "@/api/queries"
+import { currentFiscalYear, fyLabel } from "@/lib/fiscal"
+import { useAlerts, useInitiatives, useNewSubmissionCount, usePendingItemCount, useSpendSummary } from "@/api/queries"
+import { useDisplayCurrency } from "@/context/CurrencyContext"
 import type { SpendSummaryFilters } from "@/types/domain"
-
-const QUARTERS = [
-  { value: "1", label: "Q1 (Apr–Jun)" },
-  { value: "2", label: "Q2 (Jul–Sep)" },
-  { value: "3", label: "Q3 (Oct–Dec)" },
-  { value: "4", label: "Q4 (Jan–Mar)" },
-]
-
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-]
-
-const STATUS_OPTIONS = [
-  { value: "submitted", label: "Submitted" },
-  { value: "under_review", label: "Under Review" },
-  { value: "changes_requested", label: "Changes Requested" },
-  { value: "resubmitted", label: "Resubmitted" },
-  { value: "approved", label: "Approved" },
-  { value: "rejected", label: "Rejected" },
-  { value: "spent", label: "Spent" },
-  { value: "closed", label: "Closed" },
-]
-
-const ALL = "__all__"
-const ALL_TIME = "__all_time__"
-const DEFAULT_FISCAL_YEAR = String(currentFiscalYear())
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -51,54 +18,20 @@ export default function Dashboard() {
   // it) but renamed so the unused-locals check doesn't flag it.
   const { data: _initiatives, isLoading: initiativesLoading } = useInitiatives()
   const { data: alerts } = useAlerts()
-  const { data: categories } = useCategories()
+  const { data: newSubmissions } = useNewSubmissionCount()
+  const { data: pendingItems } = usePendingItemCount()
 
-  const [fiscalYear, setFiscalYear] = useState(DEFAULT_FISCAL_YEAR)
-  const [quarter, setQuarter] = useState("")
-  const [month, setMonth] = useState("")
-  const [categoryId, setCategoryId] = useState("")
-  const [requesterId, setRequesterId] = useState("")
-  const [statusFilter, setStatusFilter] = useState("")
-  const [displayCurrency, setDisplayCurrency] = useState<"INR" | "USD">("INR")
+  const { currency: displayCurrency } = useDisplayCurrency()
 
-  const [drilldown, setDrilldown] = useState<{ title: string; categoryId?: string } | null>(null)
-
-  const resetFilters = () => {
-    setFiscalYear(DEFAULT_FISCAL_YEAR)
-    setQuarter("")
-    setMonth("")
-    setCategoryId("")
-    setRequesterId("")
-    setStatusFilter("")
-  }
-
-  const isAllTime = fiscalYear === ALL_TIME
-
+  // Dashboard always shows the current fiscal year — filtering by a
+  // different period lives on the Requests page now, not here.
   const filters: SpendSummaryFilters = useMemo(
-    () => ({
-      fiscal_year: !isAllTime && fiscalYear ? Number(fiscalYear) : undefined,
-      all_time: isAllTime || undefined,
-      quarter: quarter ? Number(quarter) : undefined,
-      month: month ? Number(month) : undefined,
-      category_id: categoryId || undefined,
-      requester_id: requesterId || undefined,
-      status_filter: statusFilter || undefined,
-      display_currency: displayCurrency,
-    }),
-    [isAllTime, fiscalYear, quarter, month, categoryId, requesterId, statusFilter, displayCurrency],
+    () => ({ fiscal_year: currentFiscalYear(), display_currency: displayCurrency }),
+    [displayCurrency],
   )
 
   const { data, isLoading, isError } = useSpendSummary(filters)
   const periodLabel = data?.fiscal_year != null ? fyLabel(data.fiscal_year) : "All Time"
-
-  const exportCsv = async (kind: "spend-summary" | "spend-requests") => {
-    const qs = spendSummaryQueryString(filters)
-    try {
-      await downloadFile(`/reports/${kind}/export${qs ? `?${qs}` : ""}`, `${kind}.csv`)
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Couldn't export this report.")
-    }
-  }
 
   // Fed the now-hidden "Submitted Requests" tile (see the commented-out KPI
   // block below) — paused, not deleted, alongside that tile.
@@ -107,40 +40,12 @@ export default function Dashboard() {
   //   return { activeInitiatives }
   // }, [initiatives])
 
-  const isFiltered =
-    fiscalYear !== DEFAULT_FISCAL_YEAR || !!quarter || !!month || !!categoryId || !!requesterId || !!statusFilter
-
   return (
     <div>
       <div className="mb-6">
         {/* <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Overview</div> */}
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="mt-1 text-base text-muted-foreground">
-          Organization-wide marketing spend — status, approvals, and the leadership report, all in one place.
-        </p>
       </div>
-
-      {alerts && alerts.length > 0 && (() => {
-        const isCritical = alerts.some((a) => a.severity === "critical")
-        return (
-          <Link
-            to="/approvals"
-            className={`group mb-8 flex items-center gap-3 border px-4 py-3 text-sm transition-colors ${
-              isCritical
-                ? "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20"
-                : "border-chip-warning-fg bg-chip-warning-bg text-chip-warning-fg hover:bg-chip-warning-fg/20"
-            }`}
-          >
-            <Bell className="size-4 shrink-0" />
-            <span>
-              {alerts.length} item{alerts.length === 1 ? "" : "s"} need{alerts.length === 1 ? "s" : ""} your decision.
-            </span>
-            <span className="ml-auto flex items-center gap-1 rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-white transition-colors group-hover:bg-destructive/90">
-              Review now <ChevronRight className="size-3.5" />
-            </span>
-          </Link>
-        )
-      })()}
 
       {initiativesLoading || isLoading ? (
         <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4">
@@ -198,113 +103,61 @@ export default function Dashboard() {
         )
       )}
 
-      <div className="mb-8 flex items-center gap-2 overflow-x-auto border-y border-border py-3">
-        <Select value={fiscalYear} onValueChange={setFiscalYear}>
-          <SelectTrigger className="h-8 shrink-0 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="!max-h-40" align="start">
-            <SelectItem value={ALL_TIME}>All Time (past approvals)</SelectItem>
-            {fiscalYearOptions().map((y) => (
-              <SelectItem key={y} value={String(y)}>{fyLabel(y)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {newSubmissions && newSubmissions.count > 0 ? (
+        // A brand-new submission is informational, not a problem the way the
+        // other alerts below are — the same navy-blue "chip-active" tint
+        // used for the "Approval Pending" status badge, distinct from the
+        // amber/red warning-or-critical tones below. Takes priority over the
+        // general alerts banner below; once the approver actually opens
+        // /approvals (marking these seen), this reverts to that banner on
+        // their next visit, re-counted.
+        <Link
+          to="/approvals"
+          className="group mb-8 flex items-center gap-3 border border-chip-active-fg/30 bg-chip-active-bg px-4 py-3 text-sm text-chip-active-fg transition-colors hover:bg-chip-active-fg/15"
+        >
+          <Bell className="size-4 shrink-0" />
+          <span>
+            <strong>{newSubmissions.count}</strong> New Request{newSubmissions.count === 1 ? "" : "s"} Submitted
+          </span>
+          <span className="ml-auto flex items-center gap-1 rounded-md bg-chip-active-fg px-3 py-1.5 text-xs font-semibold text-white transition-colors group-hover:bg-chip-active-fg/90">
+            Review now <ChevronRight className="size-3.5" />
+          </span>
+        </Link>
+      ) : (
+        pendingItems && pendingItems.count > 0 && (() => {
+          // The "critical" styling still comes from list_alerts (overspend)
+          // — pendingItems.count itself is the TOTAL backlog size (every
+          // pending spend-request-level item, regardless of staleness, plus
+          // the other alert types), not just the subset list_alerts flags as
+          // "pending too long."
+          const isCritical = !!alerts?.some((a) => a.severity === "critical")
+          return (
+            <Link
+              to="/approvals"
+              className={`group mb-8 flex items-center gap-3 border px-4 py-3 text-sm transition-colors ${
+                isCritical
+                  ? "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20"
+                  : "border-chip-warning-fg bg-chip-warning-bg text-chip-warning-fg hover:bg-chip-warning-fg/20"
+              }`}
+            >
+              <Bell className="size-4 shrink-0" />
+              <span>
+                <strong>{pendingItems.count}</strong> Pending Item{pendingItems.count === 1 ? "" : "s"}
+              </span>
+              <span className="ml-auto flex items-center gap-1 rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-white transition-colors group-hover:bg-destructive/90">
+                Review now <ChevronRight className="size-3.5" />
+              </span>
+            </Link>
+          )
+        })()
+      )}
 
-        <Select value={quarter || ALL} onValueChange={(v) => setQuarter(v === ALL ? "" : v)}>
-          <SelectTrigger className="h-8 shrink-0 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none">
-            <SelectValue placeholder="All Quarters" />
-          </SelectTrigger>
-          <SelectContent className="!max-h-40" align="start">
-            <SelectItem value={ALL}>All Quarters</SelectItem>
-            {QUARTERS.map((q) => (
-              <SelectItem key={q.value} value={q.value}>{q.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={month || ALL} onValueChange={(v) => setMonth(v === ALL ? "" : v)}>
-          <SelectTrigger className="h-8 shrink-0 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none">
-            <SelectValue placeholder="All Months" />
-          </SelectTrigger>
-          <SelectContent className="!max-h-40" align="start">
-            <SelectItem value={ALL}>All Months</SelectItem>
-            {MONTHS.map((m, i) => (
-              <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={categoryId || ALL} onValueChange={(v) => setCategoryId(v === ALL ? "" : v)}>
-          <SelectTrigger className="h-8 shrink-0 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none">
-            <SelectValue placeholder="All Categories" />
-          </SelectTrigger>
-          <SelectContent className="!max-h-40" align="start">
-            <SelectItem value={ALL}>All Categories</SelectItem>
-            {categories?.map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.code}. {c.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={statusFilter || ALL} onValueChange={(v) => setStatusFilter(v === ALL ? "" : v)}>
-          <SelectTrigger className="h-8 shrink-0 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none">
-            <SelectValue placeholder="All Statuses" />
-          </SelectTrigger>
-          <SelectContent className="!max-h-40" align="start">
-            <SelectItem value={ALL}>All Statuses</SelectItem>
-            {STATUS_OPTIONS.map((s) => (
-              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <div className="w-40 shrink-0">
-          <RequesterCombobox value={requesterId} onChange={setRequesterId} />
-        </div>
-
-        <Select value={displayCurrency} onValueChange={(v) => setDisplayCurrency(v as "INR" | "USD")}>
-          <SelectTrigger
-            aria-label="Display currency"
-            className="h-8 shrink-0 gap-1 rounded-md border-border bg-card px-2 text-xs font-medium shadow-none"
-          >
-            <SelectValue>{displayCurrency}</SelectValue>
-          </SelectTrigger>
-          <SelectContent align="start" className="min-w-[110px]">
-            <SelectItem value="INR">₹ INR</SelectItem>
-            <SelectItem value="USD">$ USD</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {isFiltered && (
-          <Button variant="ghost" size="sm" onClick={resetFilters} className="h-8 shrink-0 text-xs text-muted-foreground">
-            <RotateCcw className="size-3.5" /> Clear
-          </Button>
-        )}
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="ml-auto h-8 shrink-0 text-xs">
-              <Download className="size-3.5" /> Export <ChevronDown className="size-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuItem className="text-xs" onClick={() => exportCsv("spend-summary")}>
-              Category Summary (CSV)
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-xs" onClick={() => exportCsv("spend-requests")}>
-              Spend Requests (CSV)
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
 
       {data && (
         <>
-          <SpendTrendCharts filters={filters} byCategory={data.by_category} />
+          <SpendTrendCharts filters={filters} byCategory={data.by_category} periodLabel={periodLabel} />
 
           <h2 className="mb-3 text-lg font-bold">Spend by Category</h2>
-          <p className="mb-3 -mt-2 text-xs text-muted-foreground">Click a row to see the individual spend requests behind it.</p>
           {data.by_category.length === 0 ? (
             <div className="border border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
               No matching spend for these filters.
@@ -318,6 +171,7 @@ export default function Dashboard() {
                     <TableHead>Approved</TableHead>
                     {/* <TableHead>Actual</TableHead> */}
                     {/* <TableHead>Balance</TableHead> */}
+                    <TableHead className="w-8" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -325,55 +179,43 @@ export default function Dashboard() {
                     <TableRow
                       key={row.category_id}
                       className="cursor-pointer hover:bg-secondary/40"
-                      onClick={() =>
-                        setDrilldown({
-                          title: `${row.category_code}. ${row.category_name}`,
-                          categoryId: row.category_id,
-                        })
-                      }
+                      onClick={() => navigate("/initiatives", { state: { categoryId: row.category_id } })}
                     >
-                      <TableCell>{row.category_code}. {row.category_name}</TableCell>
+                      <TableCell>{row.category_name}</TableCell>
                       <TableCell className="tabular-nums">{formatMoney(row.approved, data.display_currency)}</TableCell>
                       {/* <TableCell className="tabular-nums">{formatMoney(row.actual, data.display_currency)}</TableCell> */}
                       {/* <TableCell className="tabular-nums">{formatMoney(row.balance, data.display_currency)}</TableCell> */}
+                      <TableCell><ChevronRight className="size-4 text-muted-foreground" /></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
 
-              <div className="flex flex-col gap-3 p-3 lg:hidden">
+              <div className="lg:hidden">
+                <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/60 px-4 py-2 text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">
+                  <span>Category</span>
+                  <span>Approved</span>
+                </div>
+                <div className="flex flex-col gap-3 p-3">
                 {data.by_category.map((row) => (
                   <MobileRow
                     key={row.category_id}
-                    onClick={() =>
-                      setDrilldown({
-                        title: `${row.category_code}. ${row.category_name}`,
-                        categoryId: row.category_id,
-                      })
-                    }
+                    onClick={() => navigate("/initiatives", { state: { categoryId: row.category_id } })}
                   >
-                    <div className="font-medium">{row.category_code}. {row.category_name}</div>
-                    <MobileField label="Approved">{formatMoney(row.approved, data.display_currency)}</MobileField>
-                    {/* <MobileField label="Actual">{formatMoney(row.actual, data.display_currency)}</MobileField> */}
-                    {/* <MobileField label="Balance">{formatMoney(row.balance, data.display_currency)}</MobileField> */}
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium">{row.category_name}</span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="tabular-nums">{formatMoney(row.approved, data.display_currency)}</span>
+                        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                      </span>
+                    </div>
                   </MobileRow>
                 ))}
+                </div>
               </div>
             </div>
           )}
-          <p className="mt-3 text-xs text-muted-foreground">
-            {data.matched_spend_request_count} spend request(s) matched — drafts are never included.
-          </p>
         </>
-      )}
-
-      {drilldown && (
-        <SpendRequestRowsDialog
-          open={!!drilldown}
-          onOpenChange={(open) => { if (!open) setDrilldown(null) }}
-          title={drilldown.title}
-          filters={drilldown.categoryId ? { ...filters, category_id: drilldown.categoryId } : filters}
-        />
       )}
     </div>
   )

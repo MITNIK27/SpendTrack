@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 import { Toaster } from "@/components/ui/sonner"
 import { AuthProvider } from "@/auth/AuthContext"
+import { CurrencyProvider } from "@/context/CurrencyContext"
 import { ProtectedRoute, MemberRoute, ApproverRoute, AdminRoute } from "@/routes/ProtectedRoute"
 import { AppLayout } from "@/layout/AppLayout"
 import Login from "@/screens/Login"
@@ -31,6 +32,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
+          <CurrencyProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route element={<ProtectedRoute />}>
@@ -57,6 +59,7 @@ function App() {
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </CurrencyProvider>
         </AuthProvider>
       </BrowserRouter>
       <Toaster />

@@ -61,7 +61,12 @@ export default function InitiativeDetail() {
   }
 
   const s = initiative.financial_summary
-  const isOwner = initiative.owner.id === user?.id
+  // Editing is a member-only action (`initiatives/:id/edit` is gated by
+  // MemberRoute) — checking ownership alone isn't enough, since an approver
+  // can also be an initiative's owner (e.g. one they submitted before taking
+  // on that role) and would otherwise see an Edit button that just bounces
+  // them back out via that route guard.
+  const isOwner = initiative.owner.id === user?.id && user?.role === "member"
   const draftSpendRequests = initiative.spend_requests.filter((sr) => sr.status === "draft")
 
   // The budget entered up front can drift from what's actually been broken
@@ -105,7 +110,7 @@ export default function InitiativeDetail() {
 
   return (
     <div className="mx-auto max-w-[960px]">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <div>
           <BackButton to={user?.role === "member" ? "/" : "/initiatives"} />
           <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
@@ -121,41 +126,44 @@ export default function InitiativeDetail() {
             <p className="mt-2 max-w-prose text-sm text-foreground">{initiative.objective}</p>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {isOwner && (
-            <Button asChild variant="outline">
-              <Link to={`/initiatives/${initiative.id}/edit`}>
-                <Pencil className="size-4" /> Edit
-              </Link>
-            </Button>
-          )}
-          {isOwner && initiative.status === "draft" && (
-            <Button onClick={openSubmitDialog} disabled={submitInitiative.isPending}>
-              {submitInitiative.isPending ? "Submitting…" : "Submit for Approval"}
-            </Button>
-          )}
-          {canDecide && pending.length > 0 && (
-            <>
-              <Button
-                onClick={approvalChecklist.approve}
-                disabled={approvalChecklist.selectedCount === 0 || approvalChecklist.isPending}
-              >
-                {approvalChecklist.isPending ? "Approving…" : "Approve"}
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <span className="text-xs text-muted-foreground">Submitted by {initiative.owner.name}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {isOwner && (
+              <Button asChild variant="outline">
+                <Link to={`/initiatives/${initiative.id}/edit`}>
+                  <Pencil className="size-4" /> Edit
+                </Link>
               </Button>
-              <Button
-                variant="outline"
-                onClick={approvalChecklist.openRejectDialog}
-                disabled={approvalChecklist.selectedCount === 0 || approvalChecklist.isPending}
-              >
-                Reject
+            )}
+            {isOwner && initiative.status === "draft" && (
+              <Button onClick={openSubmitDialog} disabled={submitInitiative.isPending}>
+                {submitInitiative.isPending ? "Submitting…" : "Submit for Approval"}
               </Button>
-            </>
-          )}
-          {canAddSpend && !addSpendOpen && (
-            <Button onClick={() => setAddSpendOpen(true)}>
-              <Plus className="size-4" /> Add Spend
-            </Button>
-          )}
+            )}
+            {canDecide && pending.length > 0 && (
+              <>
+                <Button
+                  onClick={approvalChecklist.approve}
+                  disabled={approvalChecklist.selectedCount === 0 || approvalChecklist.isPending}
+                >
+                  {approvalChecklist.isPending ? "Approving…" : "Approve"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={approvalChecklist.openRejectDialog}
+                  disabled={approvalChecklist.selectedCount === 0 || approvalChecklist.isPending}
+                >
+                  Reject
+                </Button>
+              </>
+            )}
+            {canAddSpend && !addSpendOpen && (
+              <Button onClick={() => setAddSpendOpen(true)}>
+                <Plus className="size-4" /> Add Spend
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -206,12 +214,9 @@ export default function InitiativeDetail() {
         <>
           {canDecide && pending.length > 0 && (
             <div className="mb-6">
-              <h2 className="text-lg font-bold">Awaiting Decision</h2>
-              <p className="mb-2 text-xs text-muted-foreground">
-                Everything's selected by default — untick anything to leave it pending, add a remark where it helps.
-              </p>
+              <h2 className="mb-2 text-lg font-bold">Awaiting Decision</h2>
               <div className="border border-border bg-card">
-                <ApprovalTable spendRequests={pending} state={approvalChecklist} />
+                <ApprovalTable spendRequests={pending} state={approvalChecklist} hideRequestedBy />
               </div>
               <RejectConfirmDialog state={approvalChecklist} spendRequests={pending} initiativeName={initiative.name} />
             </div>

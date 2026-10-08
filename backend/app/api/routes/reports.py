@@ -1,10 +1,12 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_role
 from app.models.user import User
-from app.schemas.alert import AlertItem
+from app.schemas.alert import AlertItem, NewSubmissionCount, PendingItemCount
 from app.schemas.report import SpendRequestReportRow, SpendSummaryResponse, SpendTrendsResponse
 from app.services import alert_service, report_service
 from app.services.csv_export import csv_response
@@ -19,6 +21,31 @@ def alerts(
     user: User = Depends(require_role("approver", "admin")),
 ) -> list[AlertItem]:
     return alert_service.list_alerts(db)
+
+
+@router.get("/new-submission-count", response_model=NewSubmissionCount)
+def new_submission_count(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("approver", "admin")),
+) -> NewSubmissionCount:
+    return NewSubmissionCount(count=alert_service.count_new_requests(db, user.approvals_last_viewed_at))
+
+
+@router.get("/pending-item-count", response_model=PendingItemCount)
+def pending_item_count(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("approver", "admin")),
+) -> PendingItemCount:
+    return PendingItemCount(count=alert_service.count_pending_items(db))
+
+
+@router.post("/approvals-seen", status_code=204)
+def mark_approvals_seen(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("approver", "admin")),
+) -> None:
+    user.approvals_last_viewed_at = datetime.now(timezone.utc)
+    db.commit()
 
 
 @router.get("/spend-summary", response_model=SpendSummaryResponse)

@@ -24,38 +24,36 @@ const CHART_COLORS = [
   "var(--color-chart-5)",
 ]
 
-// One fixed color per category code (A-Q) — assigned by position in the
-// alphabet rather than by order of appearance, so a given category keeps the
-// same color across filter changes instead of reshuffling whenever the mix
-// of categories with spend changes. Built from exactly 4 hue families — red,
-// green, yellow, blue — each with 4-5 shades to cover all 17 codes. The
-// families are interleaved (round-robin) rather than grouped, so two
-// same-hue shades never land next to each other alphabetically (an earlier
-// attempt put near-identical reds on E and Q, which were indistinguishable
-// in the chart).
-const CATEGORY_COLORS = [
-  "#ea1b3d", // A — red (bright)
-  "#0fa958", // B — green (bright)
-  "#ecb547", // C — yellow (bright)
-  "#aa142d", // D — red (dark)
-  "#4272FF", // E — blue (Travel & Accommodation, pinned per stakeholder request)
-  "#0d8244", // F — green (dark)
-  "#bf8208", // G — yellow (dark gold)
-  "#4a6fa5", // H — blue (medium)
-  "#c53030", // I — red (medium)
-  "#3f6b4e", // J — green (forest)
-  "#8c681f", // K — yellow (brown-gold)
-  "#7fa8d9", // L — blue (pale)
-  "#eb4c5e", // M — red (soft)
-  "#6fae8c", // N — green (soft)
-  "#d9a441", // O — yellow (pale gold)
-  "#0a3d73", // P — blue (deep)
-  "#a8692a", // Q — yellow (terracotta)
-]
+// One explicit color per category code. Keyed by code (not derived from its
+// position) so a given category keeps the same color across filter changes,
+// and so a new category gets a deliberately chosen color that doesn't clash
+// with the existing ones — add an entry here whenever a category is added.
+const CATEGORY_COLORS: Record<string, string> = {
+  A: "#E63946", // Conferences & Events — crimson
+  B: "#00A878", // Advertising & Paid Promotion — emerald
+  C: "#F2C14E", // Content & Creative — amber
+  D: "#8E44AD", // Branding & Merchandise — violet
+  E: "#3498DB", // Travel & Accommodation — azure
+  F: "#D946A8", // Customer / Prospect Engagement — magenta
+  G: "#F77F00", // Digital Marketing — orange
+  H: "#3F51B5", // Marketing Technology — indigo
+  I: "#FF6B6B", // PR & Communications — coral
+  J: "#00A6A6", // Analyst / Industry Relations — teal
+  K: "#6C5CE7", // Partnerships & Co-Marketing — purple
+  L: "#22B8CF", // Website & Digital Presence — cyan
+  M: "#E83E8C", // Awards & Recognition — raspberry
+  N: "#7A9E3A", // Research & Intelligence — olive
+  O: "#D4A017", // Memberships & Associations — mustard
+  P: "#264653", // Internal Marketing Initiatives — deep navy
+  Q: "#C1663A", // Others — terracotta
+}
+
+// Neutral grey for a code with no entry above, so it stays visible instead of
+// silently reusing another category's color.
+const FALLBACK_CATEGORY_COLOR = "#9CA3AF"
 
 function categoryColor(code: string): string {
-  const index = code.toUpperCase().charCodeAt(0) - "A".charCodeAt(0)
-  return CATEGORY_COLORS[((index % CATEGORY_COLORS.length) + CATEGORY_COLORS.length) % CATEGORY_COLORS.length]
+  return CATEGORY_COLORS[code.toUpperCase()] ?? FALLBACK_CATEGORY_COLOR
 }
 
 const QUARTER_LABELS: Record<number, string> = {
@@ -72,13 +70,14 @@ function n(amount: string): number {
 interface Props {
   filters: SpendSummaryFilters
   byCategory: CategoryBreakdownRow[]
+  periodLabel: string
 }
 
 /** BI-style charts for the leadership dashboard — a monthly trend line, a
  * quarterly bar, a category spend-share donut, and average monthly spend by
  * category. Siddharth doesn't need to read the numbers row by row to get the
  * shape of where spend is going. */
-export function SpendTrendCharts({ filters, byCategory }: Props) {
+export function SpendTrendCharts({ filters, byCategory, periodLabel }: Props) {
   const { data, isLoading } = useSpendTrends(filters)
 
   if (isLoading) {
@@ -170,7 +169,7 @@ export function SpendTrendCharts({ filters, byCategory }: Props) {
           )}
         </ChartCard>
 
-        <ChartCard title="Category-wise Spend Share">
+        <ChartCard title={`Category-wise Spend Share (${periodLabel})`}>
           {categoryShareData.length === 0 ? (
             <EmptyChart />
           ) : (

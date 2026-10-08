@@ -21,6 +21,10 @@ class User(Base):
     role: Mapped[str] = mapped_column(Enum(*USER_ROLES, name="user_role"), nullable=False, default="member")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # When this approver/admin last visited the Approvals queue — drives the
+    # Dashboard's "N New Requests Submitted" banner (alert_service.count_new_submissions):
+    # null means "never visited," which counts everything currently pending as new.
+    approvals_last_viewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

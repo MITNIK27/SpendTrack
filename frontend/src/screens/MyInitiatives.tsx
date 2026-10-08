@@ -1,6 +1,7 @@
-import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
-import { ArrowDown, ArrowUp, ArrowUpDown, FolderPlus, ListFilter, Pencil, Trash2 } from "lucide-react"
+import { useMemo, useState } from "react"
+import { Link, useLocation, useNavigate } from "react-router-dom"
+import { toast } from "sonner"
+import { Download, ChevronDown, FolderPlus, Pencil, RotateCcw, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { MobileRow, MobileField } from "@/components/ui/mobile-card-row"
@@ -9,18 +10,20 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { FilterableColumnHead } from "@/components/FilterableColumnHead"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { SortableColumnHead } from "@/components/SortableColumnHead"
+import { RequesterCombobox } from "@/components/RequesterCombobox"
+import { RequestsFilterSheet, ALL, ALL_TIME, QUARTERS, MONTHS } from "@/components/RequestsFilterSheet"
 import { InitiativeStatusBadge, deriveOutcome, OUTCOME_DOT_CLASS, OUTCOME_LABELS, type InitiativeOutcome } from "@/components/InitiativeStatusBadge"
 import { useAuth } from "@/auth/AuthContext"
-import { useDeleteInitiative, useInitiatives } from "@/api/queries"
-import { ApiError } from "@/api/client"
+import { useCategories, useDeleteInitiative, useInitiatives, spendSummaryQueryString } from "@/api/queries"
+import { ApiError, downloadFile } from "@/api/client"
 import { formatMoney } from "@/lib/money"
-import type { Initiative } from "@/types/domain"
+import { currentFiscalYear, fiscalYearOptions, fyLabel, fiscalYearOf, fiscalQuarterOf } from "@/lib/fiscal"
+import type { Initiative, SpendSummaryFilters } from "@/types/domain"
 
 /** "date" is the default/reset state (latest first, matches the backend's
  * own default ordering) — clicking the Initiative column header cycles
@@ -31,6 +34,7 @@ type SortBy = "date" | "name-asc" | "name-desc"
 const NEXT_SORT: Record<SortBy, SortBy> = { date: "name-asc", "name-asc": "name-desc", "name-desc": "date" }
 
 const OUTCOME_OPTIONS: InitiativeOutcome[] = ["draft", "active", "partial", "approved", "rejected"]
+const DEFAULT_FISCAL_YEAR = String(currentFiscalYear())
 
 /** True once there's an actual breakdown whose total doesn't match the
  * original budget — the Requested cell is highlighted in that case so the
@@ -47,8 +51,10 @@ function requestedIsOffBudget(initiative: Initiative): boolean {
 export default function MyInitiatives() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const canCreate = user?.role === "member"
   const { data: initiatives, isLoading, isError } = useInitiatives()
+  const { data: categories } = useCategories()
   const deleteInitiative = useDeleteInitiative()
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZES[1])
@@ -57,8 +63,31 @@ export default function MyInitiatives() {
   const [sortBy, setSortBy] = useState<SortBy>("date")
   const [statusFilter, setStatusFilter] = useState<InitiativeOutcome | "all">("all")
 
+  // Moved here from the Dashboard, which now always shows the current fiscal
+  // year — these are the only place requests get filtered by period/category/
+  // requester.
+  // A member's filter surface is restricted to Category/Status (see
+  // isFiltered/activeFilterCount below) — Fiscal Year/Quarter/Month/Requester
+  // controls aren't shown to them, so fiscalYear must default to "all time"
+  // for a member or they'd be silently stuck on the current FY with no way
+  // to reach their own past requests.
+  const [fiscalYear, setFiscalYear] = useState(canCreate ? ALL_TIME : DEFAULT_FISCAL_YEAR)
+  const [quarter, setQuarter] = useState("")
+  const [month, setMonth] = useState("")
+  const [categoryId, setCategoryId] = useState(
+    () => (location.state as { categoryId?: string } | null)?.categoryId ?? "",
+  )
+  const [requesterId, setRequesterId] = useState("")
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false)
+  const isAllTime = fiscalYear === ALL_TIME
+
   const filteredSorted = (initiatives ?? [])
     .filter((i) => statusFilter === "all" || deriveOutcome(i) === statusFilter)
+    .filter((i) => isAllTime || fiscalYearOf(new Date(i.created_at)) === Number(fiscalYear))
+    .filter((i) => !quarter || fiscalQuarterOf(new Date(i.created_at)) === Number(quarter))
+    .filter((i) => !month || new Date(i.created_at).getMonth() + 1 === Number(month))
+    .filter((i) => !categoryId || i.category_ids.includes(categoryId))
+    .filter((i) => !requesterId || i.owner.id === requesterId)
     .sort((a, b) => {
       if (sortBy === "date") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       const cmp = a.name.localeCompare(b.name)
@@ -89,6 +118,51 @@ export default function MyInitiatives() {
   const nameSortDirection = sortBy === "name-asc" ? "asc" : sortBy === "name-desc" ? "desc" : null
   const changeStatusFilter = (v: InitiativeOutcome | "all") => { setStatusFilter(v); setPage(1) }
 
+  // A member only ever sees their own requests (filtering by Requester would
+  // be meaningless) and doesn't get the period filters either — their filter
+  // surface is Category + Status only, so only those two count here.
+  const isFiltered = canCreate
+    ? !!categoryId || statusFilter !== "all"
+    : fiscalYear !== DEFAULT_FISCAL_YEAR || !!quarter || !!month || !!categoryId || !!requesterId || statusFilter !== "all"
+  const activeFilterCount = canCreate
+    ? [!!categoryId, statusFilter !== "all"].filter(Boolean).length
+    : [fiscalYear !== DEFAULT_FISCAL_YEAR, !!quarter, !!month, !!categoryId, !!requesterId, statusFilter !== "all"]
+        .filter(Boolean).length
+
+  const resetFilters = () => {
+    setFiscalYear(canCreate ? ALL_TIME : DEFAULT_FISCAL_YEAR)
+    setQuarter("")
+    setMonth("")
+    setCategoryId("")
+    setRequesterId("")
+    changeStatusFilter("all")
+  }
+
+  // Export reflects whatever's currently filtered here — reuses the same
+  // report-export endpoints the Dashboard used to drive directly; status
+  // isn't included since this page's Status filter is an outcome derived
+  // across a request's whole breakdown, not the per-spend-request status
+  // the report export endpoint filters by.
+  const exportFilters: SpendSummaryFilters = useMemo(
+    () => ({
+      fiscal_year: !isAllTime && fiscalYear ? Number(fiscalYear) : undefined,
+      all_time: isAllTime || undefined,
+      quarter: quarter ? Number(quarter) : undefined,
+      month: month ? Number(month) : undefined,
+      category_id: categoryId || undefined,
+      requester_id: requesterId || undefined,
+    }),
+    [isAllTime, fiscalYear, quarter, month, categoryId, requesterId],
+  )
+  const exportCsv = async (kind: "spend-summary" | "spend-requests") => {
+    const qs = spendSummaryQueryString(exportFilters)
+    try {
+      await downloadFile(`/reports/${kind}/export${qs ? `?${qs}` : ""}`, `${kind}.csv`)
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Couldn't export this report.")
+    }
+  }
+
   const closeDeleteDialog = () => {
     setPendingDelete(null)
     setDeleteError(null)
@@ -112,11 +186,11 @@ export default function MyInitiatives() {
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">{canCreate ? "My Requests" : "Requests"}</h1>
-          <p className="mt-1 text-base text-muted-foreground">
-            {canCreate
-              ? "Group related marketing spend under a request, then add individual spend requests to it."
-              : "Browse every request — open one to review and decide on its spend requests."}
-          </p>
+          {canCreate && (
+            <p className="mt-1 text-base text-muted-foreground">
+              Group related marketing spend under a request, then add individual spend requests to it.
+            </p>
+          )}
         </div>
         {canCreate && (
           <Button asChild>
@@ -162,45 +236,165 @@ export default function MyInitiatives() {
       )}
 
       {!isLoading && !isError && (initiatives?.length ?? 0) > 0 && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          {/* Desktop filters by clicking the Status column header itself
-             (below) — this mobile-only trigger covers the card view, which
-             has no column headers to click. */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5 bg-card text-muted-foreground lg:hidden">
-                <ListFilter className="size-3.5" />
-                {statusFilter === "all" ? "Status" : OUTCOME_LABELS[statusFilter]}
+        <>
+          {/* Mobile: one "Filter & Sort" trigger (opens a bottom sheet with
+             everything) plus Export — desktop filters/sorts via the inline
+             bar below and the column headers themselves. */}
+          <div className="mb-3 flex items-center gap-2 lg:hidden">
+            <RequestsFilterSheet
+              open={filterSheetOpen}
+              onOpenChange={setFilterSheetOpen}
+              fiscalYear={fiscalYear}
+              onFiscalYearChange={setFiscalYear}
+              quarter={quarter}
+              onQuarterChange={setQuarter}
+              month={month}
+              onMonthChange={setMonth}
+              categoryId={categoryId}
+              onCategoryIdChange={setCategoryId}
+              categories={categories}
+              requesterId={requesterId}
+              onRequesterIdChange={setRequesterId}
+              statusFilter={statusFilter}
+              onStatusFilterChange={changeStatusFilter}
+              statusOptions={filterTabOptions}
+              sortBy={sortBy}
+              onSortByChange={changeSortBy}
+              onClear={resetFilters}
+              activeCount={activeFilterCount}
+              restrictedToBasicFilters={canCreate}
+            />
+            {isFiltered && (
+              <Button
+                variant="outline"
+                size="icon-sm"
+                aria-label="Reset filters"
+                title="Reset filters"
+                className="h-8 shrink-0 bg-card text-muted-foreground"
+                onClick={resetFilters}
+              >
+                <RotateCcw className="size-3.5" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-[220px]">
-              <DropdownMenuRadioGroup value={statusFilter} onValueChange={(v) => changeStatusFilter(v as InitiativeOutcome | "all")}>
-                {filterTabOptions.map((o) => (
-                  <DropdownMenuRadioItem key={o.value} value={o.value} className="justify-between gap-6 py-1.5">
-                    <span className="flex items-center gap-2">
-                      <span className={`size-1.5 shrink-0 rounded-full ${o.dotClassName ?? "bg-muted-foreground"}`} />
-                      {o.label}
-                    </span>
-                    <span className="tabular-nums text-muted-foreground">{o.count}</span>
-                  </DropdownMenuRadioItem>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="ml-auto h-8 gap-1.5 bg-card text-muted-foreground">
+                  <Download className="size-3.5" /> Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem className="text-xs" onClick={() => exportCsv("spend-summary")}>
+                  Category Summary (CSV)
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-xs" onClick={() => exportCsv("spend-requests")}>
+                  Spend Requests (CSV)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          {/* Desktop filter bar — moved here from the Dashboard, which now
+             always shows the current fiscal year only. */}
+          <div className="mb-3 hidden items-center gap-2 overflow-x-auto border-y border-border py-3 lg:flex">
+            {!canCreate && (
+              <>
+                <Select value={fiscalYear} onValueChange={setFiscalYear}>
+                  <SelectTrigger className="h-8 shrink-0 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="!max-h-40" align="start">
+                    <SelectItem value={ALL_TIME}>All Time</SelectItem>
+                    {fiscalYearOptions().map((y) => (
+                      <SelectItem key={y} value={String(y)}>{fyLabel(y)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={quarter || ALL} onValueChange={(v) => setQuarter(v === ALL ? "" : v)}>
+                  <SelectTrigger className="h-8 shrink-0 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none">
+                    <SelectValue placeholder="All Quarters" />
+                  </SelectTrigger>
+                  <SelectContent className="!max-h-40" align="start">
+                    <SelectItem value={ALL}>All Quarters</SelectItem>
+                    {QUARTERS.map((q) => (
+                      <SelectItem key={q.value} value={q.value}>{q.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={month || ALL} onValueChange={(v) => setMonth(v === ALL ? "" : v)}>
+                  <SelectTrigger className="h-8 shrink-0 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none">
+                    <SelectValue placeholder="All Months" />
+                  </SelectTrigger>
+                  <SelectContent className="!max-h-40" align="start">
+                    <SelectItem value={ALL}>All Months</SelectItem>
+                    {MONTHS.map((m, i) => (
+                      <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
+
+            <Select value={categoryId || ALL} onValueChange={(v) => setCategoryId(v === ALL ? "" : v)}>
+              <SelectTrigger className="h-8 shrink-0 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none">
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent className="!max-h-40" align="start">
+                <SelectItem value={ALL}>All Categories</SelectItem>
+                {categories?.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                 ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {/* Desktop sorts by clicking the Initiative column header itself
-             (below) — this mobile-only button covers the card view. */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto h-8 gap-1.5 bg-card text-muted-foreground lg:hidden"
-            onClick={cycleSortBy}
-          >
-            {nameSortDirection === "asc" && <ArrowUp className="size-3.5" />}
-            {nameSortDirection === "desc" && <ArrowDown className="size-3.5" />}
-            {!nameSortDirection && <ArrowUpDown className="size-3.5" />}
-            {sortBy === "date" ? "Latest date" : sortBy === "name-asc" ? "Name (A–Z)" : "Name (Z–A)"}
-          </Button>
-        </div>
+              </SelectContent>
+            </Select>
+
+            <Select value={statusFilter} onValueChange={(v) => changeStatusFilter(v as InitiativeOutcome | "all")}>
+              <SelectTrigger className="h-8 shrink-0 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent className="!max-h-40" align="start">
+                {filterTabOptions.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label} ({o.count})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {!canCreate && (
+              <div className="w-40 shrink-0">
+                <RequesterCombobox value={requesterId} onChange={setRequesterId} />
+              </div>
+            )}
+
+            {isFiltered && (
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onClick={resetFilters}
+                aria-label="Clear filters"
+                title="Clear filters"
+                className="h-8 w-8 shrink-0 border-primary/40 bg-primary/5 text-primary hover:bg-primary/10"
+              >
+                <RotateCcw className="size-3.5" />
+              </Button>
+            )}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="ml-auto h-8 shrink-0 text-xs">
+                  <Download className="size-3.5" /> Export <ChevronDown className="size-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem className="text-xs" onClick={() => exportCsv("spend-summary")}>
+                  Category Summary (CSV)
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-xs" onClick={() => exportCsv("spend-requests")}>
+                  Spend Requests (CSV)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </>
       )}
 
       {!isLoading && !isError && (initiatives?.length ?? 0) > 0 && canCreate && (
@@ -213,13 +407,7 @@ export default function MyInitiatives() {
                 <TableHead className="px-4">Total Budget</TableHead>
                 <TableHead className="px-4">Requested</TableHead>
                 <TableHead className="px-4">Approved</TableHead>
-                <FilterableColumnHead
-                  label="Status"
-                  value={statusFilter}
-                  onChange={changeStatusFilter}
-                  options={filterTabOptions}
-                  className="px-4"
-                />
+                <TableHead className="px-4">Status</TableHead>
                 <TableHead className="px-4 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -347,13 +535,7 @@ export default function MyInitiatives() {
                 <TableHead className="px-5">Total Budget</TableHead>
                 <TableHead className="px-5">Requested</TableHead>
                 <TableHead className="px-5">Approved</TableHead>
-                <FilterableColumnHead
-                  label="Status"
-                  value={statusFilter}
-                  onChange={changeStatusFilter}
-                  options={filterTabOptions}
-                  className="px-5"
-                />
+                <TableHead className="px-5">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

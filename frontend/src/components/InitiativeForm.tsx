@@ -72,6 +72,11 @@ export function InitiativeForm({ initial, submitLabel, pendingLabel, onSubmit, o
       setError("Total budget is required.")
       return null
     }
+    const budget = Number(estimatedTotalBudget)
+    if (!Number.isFinite(budget) || budget <= 0) {
+      setError("Total budget must be greater than 0.")
+      return null
+    }
     if (!remarks.trim()) {
       setError("Remarks are required.")
       return null
@@ -87,7 +92,7 @@ export function InitiativeForm({ initial, submitLabel, pendingLabel, onSubmit, o
       category_id: category?.id ?? null,
       currency,
       objective: remarks || null,
-      estimated_total_budget: Number(estimatedTotalBudget),
+      estimated_total_budget: budget,
     }
   }
 
@@ -153,7 +158,7 @@ export function InitiativeForm({ initial, submitLabel, pendingLabel, onSubmit, o
                 <Input
                   id="estimatedTotalBudget"
                   type="number"
-                  min="0"
+                  min="0.01"
                   step="0.01"
                   value={estimatedTotalBudget}
                   onChange={(e) => setEstimatedTotalBudget(e.target.value)}

@@ -46,8 +46,9 @@ function SheetOverlay({
 }
 
 const sideClasses = {
-  left: "inset-y-0 left-0 border-r data-open:slide-in-from-left data-closed:slide-out-to-left",
-  right: "inset-y-0 right-0 border-l data-open:slide-in-from-right data-closed:slide-out-to-right",
+  left: "inset-y-0 left-0 h-full w-72 max-w-[85vw] border-r data-open:slide-in-from-left data-closed:slide-out-to-left",
+  right: "inset-y-0 right-0 h-full w-72 max-w-[85vw] border-l data-open:slide-in-from-right data-closed:slide-out-to-right",
+  bottom: "inset-x-0 bottom-0 w-full max-h-[85vh] rounded-t-lg border-t data-open:slide-in-from-bottom data-closed:slide-out-to-bottom",
 } as const
 
 function SheetContent({
@@ -55,6 +56,7 @@ function SheetContent({
   children,
   side = "left",
   showCloseButton = true,
+  onPointerDownOutside,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   side?: keyof typeof sideClasses
@@ -66,10 +68,21 @@ function SheetContent({
       <DialogPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          "fixed z-50 flex h-full w-72 max-w-[85vw] flex-col gap-4 border-border bg-card p-0 text-sm text-popover-foreground shadow-lg outline-none duration-200 data-open:animate-in data-closed:animate-out",
+          "fixed z-50 flex flex-col gap-4 border-border bg-card p-0 text-sm text-popover-foreground shadow-lg outline-none duration-200 data-open:animate-in data-closed:animate-out",
           sideClasses[side],
           className
         )}
+        // A custom combobox (SearchableCombobox.tsx) portals its dropdown to
+        // <body>, outside this Content's own DOM subtree — without this
+        // guard, Radix treats a tap in there as an outside interaction and
+        // intercepts it before the dropdown's own click handler ever fires.
+        onPointerDownOutside={(e) => {
+          if ((e.target as HTMLElement | null)?.closest("[data-combobox-portal]")) {
+            e.preventDefault()
+            return
+          }
+          onPointerDownOutside?.(e)
+        }}
         {...props}
       >
         {children}

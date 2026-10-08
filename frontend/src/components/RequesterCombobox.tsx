@@ -5,6 +5,7 @@ import { useUsers } from "@/api/queries"
 interface Props {
   value: string
   onChange: (userId: string) => void
+  inputClassName?: string
 }
 
 /** Type-to-search Requester filter — filters the already-fetched user directory
@@ -12,7 +13,7 @@ interface Props {
  * "Name (email)" so a search like "paarth" finds the right person unambiguously.
  * Shows nothing until you actually type — the point is "search and the name
  * comes up directly," not browsing the whole directory as a dropdown. */
-export function RequesterCombobox({ value, onChange }: Props) {
+export function RequesterCombobox({ value, onChange, inputClassName }: Props) {
   const { data: users, isLoading } = useUsers()
   const [query, setQuery] = useState("")
 
@@ -34,9 +35,10 @@ export function RequesterCombobox({ value, onChange }: Props) {
       isLoading={isLoading}
       query={query}
       onQueryChange={setQuery}
-      placeholder="Type a name…"
+      placeholder="Type requester's name…"
       selectedLabel={selected?.name}
       emptyMessage={query.trim() ? "No matching people." : "Start typing a name…"}
+      inputClassName={inputClassName}
     />
   )
 }

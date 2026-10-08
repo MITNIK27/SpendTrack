@@ -36,7 +36,7 @@ class SpendRequestCreate(BaseModel):
 
     team_member_ids: list[uuid.UUID] = []
 
-    vendor_quotation_amount: Decimal | None = Field(default=None, ge=0)
+    vendor_quotation_amount: Decimal | None = Field(default=None, gt=0)
     dynamic_answers: dict | None = None
     line_items: list[SpendRequestLineItemInput] = []
 
@@ -54,7 +54,7 @@ class SpendRequestUpdate(BaseModel):
 
     team_member_ids: list[uuid.UUID] | None = None
 
-    vendor_quotation_amount: Decimal | None = Field(default=None, ge=0)
+    vendor_quotation_amount: Decimal | None = Field(default=None, gt=0)
     dynamic_answers: dict | None = None
     line_items: list[SpendRequestLineItemInput] | None = None
 

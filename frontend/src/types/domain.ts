@@ -39,6 +39,12 @@ export interface Initiative {
   name: string
   type: string | null
   category: Category | null
+  // Distinct category ids this initiative's spend actually falls under — one
+  // per submitted breakdown row's own category, or this initiative's own
+  // `category` as a fallback when it has no breakdown yet. Use this (not
+  // `category`) to match the Dashboard's "Spend by Category" table, which
+  // attributes spend the same way.
+  category_ids: string[]
   owner: UserRead
   event_date: string | null
   location: string | null
@@ -273,6 +279,14 @@ export interface AlertItem {
   message: string
   entity_type: "spend_request" | "initiative"
   entity_id: string
+}
+
+export interface NewSubmissionCount {
+  count: number
+}
+
+export interface PendingItemCount {
+  count: number
 }
 
 export interface ActivityLogEntry {

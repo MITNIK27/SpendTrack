@@ -58,9 +58,6 @@ export default function SpendRequestDetail() {
         <div>
           <BackButton to={`/initiatives/${sr.initiative_id}`} label="Back to Request" />
           <h1 className="mt-1 text-3xl font-bold">{sr.description ?? sr.category.name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {sr.category.name}{sr.subcategory ? ` — ${sr.subcategory.name}` : ""}
-          </p>
           {sr.other_description && (
             <div className="mt-3 max-w-prose">
               <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">

@@ -1,6 +1,6 @@
 import re
 
-from sqlalchemy import String, cast, or_, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.models.category import Category
@@ -59,7 +59,37 @@ def search(db: Session, *, query: str, user: User) -> SearchResponse:
         Category.name.ilike(pattern),
     ]
     if amount_digits:
+        # The Requests page's "Requested"/"Approved" columns show each
+        # initiative's *total* across every submitted spend-breakdown row
+        # (Initiative.total_requested_amount/total_approved_amount), not any
+        # single row's own amount — a request built from several line items
+        # (e.g. 10000 + 5000 + 3000 + 500 = 18500) never has a single row that
+        # equals the number shown on screen, so matching must sum the same
+        # way those properties do (minus their cross-currency conversion,
+        # which is rare enough not to warrant replicating in SQL here).
+        amount_totals = (
+            select(
+                SpendRequest.initiative_id.label("initiative_id"),
+                func.sum(SpendRequest.requested_amount).label("total_requested"),
+                func.sum(SpendRequest.approved_amount).label("total_approved"),
+            )
+            .where(SpendRequest.status != "draft")
+            .group_by(SpendRequest.initiative_id)
+            .subquery()
+        )
+        amount_match = select(amount_totals.c.initiative_id).where(
+            or_(
+                cast(amount_totals.c.total_requested, String).ilike(f"%{amount_digits}%"),
+                cast(amount_totals.c.total_approved, String).ilike(f"%{amount_digits}%"),
+            )
+        )
+        conditions.append(Initiative.id.in_(amount_match))
+        # Covers a budget-only initiative (no breakdown rows of its own yet),
+        # whose "Total Budget"/"Approved" columns fall back to these two
+        # fields instead (mirrors Initiative.total_approved_amount's own
+        # fallback).
         conditions.append(cast(Initiative.estimated_total_budget, String).ilike(f"%{amount_digits}%"))
+        conditions.append(cast(Initiative.budget_approved_amount, String).ilike(f"%{amount_digits}%"))
 
     stmt = (
         select(Initiative)

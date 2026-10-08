@@ -9,6 +9,13 @@ export function fiscalYearOf(d: Date): number {
   return month >= FISCAL_YEAR_START_MONTH ? d.getFullYear() + 1 : d.getFullYear()
 }
 
+/** Mirrors backend/app/core/fiscal.py's fiscal_quarter_of. */
+export function fiscalQuarterOf(d: Date): number {
+  const month = d.getMonth() + 1
+  const monthsSinceStart = (month - FISCAL_YEAR_START_MONTH + 12) % 12
+  return Math.floor(monthsSinceStart / 3) + 1
+}
+
 export function currentFiscalYear(): number {
   return fiscalYearOf(new Date())
 }

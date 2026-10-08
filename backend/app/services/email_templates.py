@@ -99,7 +99,7 @@ def _breakdown_table(rows: list[tuple[str, str, str]]) -> str:
     )
     return f"""\
 <p style="margin:20px 0 0;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:{_MEDIUM_GRAY};">
-  Spend requests submitted with this initiative
+  Spend Breakdown
 </p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
        style="margin-top:8px;border:1px solid {_LIGHT_GRAY};border-collapse:collapse;">
@@ -209,18 +209,18 @@ def new_initiative_created(
     draft spend requests were bundled and submitted together with this
     initiative, rendered as one consolidated breakdown table so approvers get
     a single email per submission instead of one per line item."""
-    subject = f"New initiative for approval: {initiative_name}"
+    subject = f"New request for approval: {initiative_name}"
     body = _layout(
         preheader=f"{actor_name} submitted '{initiative_name}' for your approval.",
-        heading="A new initiative needs your review",
+        heading="A new request needs your review",
         body_html=(
-            f"<p><strong style='color:{_CHARCOAL};'>{actor_name}</strong> submitted a new initiative, "
+            f"<p><strong style='color:{_CHARCOAL};'>{actor_name}</strong> submitted a new request, "
             f"<strong style='color:{_CHARCOAL};'>{initiative_name}</strong>, for approval.</p>"
-            f"<div style='margin:16px 0;'>{_cta_button('Review initiative', url)}</div>"
+            f"<div style='margin:16px 0;'>{_cta_button('Review request', url)}</div>"
             f"{_details_table(details)}"
             f"{_breakdown_table(spend_requests or [])}"
         ),
-        cta_label="Review initiative",
+        cta_label="Review request",
         cta_url=url,
         show_bottom_cta=False,
     )
@@ -236,12 +236,12 @@ def new_spend_request_created(
         heading="A new spend request needs your review",
         body_html=(
             f"<p><strong style='color:{_CHARCOAL};'>{actor_name}</strong> submitted a spend request, "
-            f"<strong style='color:{_CHARCOAL};'>{spend_request_description}</strong>, under initiative "
+            f"<strong style='color:{_CHARCOAL};'>{spend_request_description}</strong>, under request "
             f"<strong style='color:{_CHARCOAL};'>{initiative_name}</strong>.</p>"
-            f"<div style='margin:16px 0;'>{_cta_button('Review initiative', url)}</div>"
+            f"<div style='margin:16px 0;'>{_cta_button('Review request', url)}</div>"
             f"{_details_table(details)}"
         ),
-        cta_label="Review initiative",
+        cta_label="Review request",
         cta_url=url,
         show_bottom_cta=False,
     )
@@ -252,16 +252,16 @@ def initiative_decision_made(
     *, initiative_name: str, decision: str, approver_name: str, comment: str | None, url: str
 ) -> tuple[str, str]:
     decision_label = "approved" if decision == "approved" else "rejected"
-    subject = f"Your initiative was {decision_label}: {initiative_name}"
+    subject = f"Your request was {decision_label}: {initiative_name}"
     comment_html = f"<p style='margin-top:12px;'><em>\"{comment}\"</em> — {approver_name}</p>" if comment else ""
     body = _layout(
-        preheader=f"{approver_name} {decision_label} your initiative '{initiative_name}'.",
-        heading=f"Your initiative was {decision_label}",
+        preheader=f"{approver_name} {decision_label} your request '{initiative_name}'.",
+        heading=f"Your request was {decision_label}",
         body_html=(
-            f"<p><strong style='color:{_CHARCOAL};'>{approver_name}</strong> {decision_label} your initiative "
+            f"<p><strong style='color:{_CHARCOAL};'>{approver_name}</strong> {decision_label} your request "
             f"<strong style='color:{_CHARCOAL};'>{initiative_name}</strong>.</p>{comment_html}"
         ),
-        cta_label="View initiative",
+        cta_label="View request",
         cta_url=url,
     )
     return subject, body

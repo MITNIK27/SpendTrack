@@ -3,11 +3,10 @@ import { useNavigate } from "react-router-dom"
 import { Search } from "lucide-react"
 import { cn } from "cn"
 import { Input } from "@/components/ui/input"
-import { InitiativeStatusBadge } from "@/components/InitiativeStatusBadge"
-import { formatMoney } from "@/lib/money"
-import { useGlobalSearch } from "@/api/queries"
-
-const DEBOUNCE_MS = 250
+import { SearchResultRow } from "@/components/search/SearchResultRow"
+import { useGlobalSearchQuery } from "@/hooks/useGlobalSearchQuery"
+import { useAuth } from "@/auth/AuthContext"
+import { addRecentSearch } from "@/lib/recentSearches"
 
 interface Props {
   autoFocus?: boolean
@@ -20,23 +19,16 @@ interface Props {
 }
 
 export function GlobalSearch({ autoFocus, onNavigate, className }: Props = {}) {
-  const [input, setInput] = useState("")
-  const [debounced, setDebounced] = useState("")
+  const { input, setInput, data, isFetching, hasResults } = useGlobalSearchQuery()
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
+  const { user } = useAuth()
 
   useEffect(() => {
     if (autoFocus) inputRef.current?.focus()
   }, [autoFocus])
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(input), DEBOUNCE_MS)
-    return () => clearTimeout(timer)
-  }, [input])
-
-  const { data, isFetching } = useGlobalSearch(debounced)
 
   useEffect(() => {
     const onClickOutside = (e: MouseEvent) => {
@@ -47,13 +39,13 @@ export function GlobalSearch({ autoFocus, onNavigate, className }: Props = {}) {
   }, [])
 
   const go = (path: string) => {
+    if (user) addRecentSearch(user.id, input)
     setOpen(false)
     setInput("")
     onNavigate?.()
     navigate(path)
   }
 
-  const hasResults = !!data && data.requests.length > 0
   const showDropdown = open && input.trim().length >= 2
 
   return (
@@ -84,23 +76,7 @@ export function GlobalSearch({ autoFocus, onNavigate, className }: Props = {}) {
                 Requests
               </div>
               {data.requests.map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => go(`/initiatives/${r.id}`)}
-                  className="flex w-full flex-col px-4 py-2 text-left text-sm hover:bg-secondary/50"
-                >
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="truncate font-medium">{r.name}</span>
-                    <InitiativeStatusBadge initiative={r} />
-                  </span>
-                  <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    {r.category_name && <span>{r.category_name}</span>}
-                    {r.category_name && <span>·</span>}
-                    <span className="tabular-nums">{formatMoney(r.estimated_total_budget, r.currency)}</span>
-                    {r.owner_name && (<><span>·</span><span>{r.owner_name}</span></>)}
-                  </span>
-                </button>
+                <SearchResultRow key={r.id} result={r} onSelect={() => go(`/initiatives/${r.id}`)} />
               ))}
             </div>
           )}

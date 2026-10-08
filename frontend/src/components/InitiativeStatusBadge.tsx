@@ -6,7 +6,7 @@ export type InitiativeOutcome = "draft" | "archived" | "active" | "approved" | "
 export const OUTCOME_LABELS: Record<InitiativeOutcome, string> = {
   draft: "Saved",
   archived: "Archived",
-  active: "Submitted for Approval",
+  active: "Approval Pending",
   approved: "Approved",
   rejected: "Rejected",
   partial: "Partially Approved",

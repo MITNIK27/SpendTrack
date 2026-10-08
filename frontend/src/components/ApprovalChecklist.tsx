@@ -21,7 +21,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { StatusBadge } from "@/components/StatusBadge"
 import { FilterableColumnHead } from "@/components/FilterableColumnHead"
 import { SortableColumnHead } from "@/components/SortableColumnHead"
-import { SearchableColumnHead } from "@/components/SearchableColumnHead"
 import { SearchableCombobox, type ComboboxOption } from "@/components/SearchableCombobox"
 import { currencySymbol, formatMoney, type Currency } from "@/lib/money"
 import { ApiError } from "@/api/client"
@@ -60,7 +59,7 @@ interface QueueControls {
  * in the page header, since approving there reads as one initiative-level
  * action, not a table action) can still reuse the exact same logic. */
 export function useApprovalChecklist(spendRequests: SpendRequest[], initiativeId?: string) {
-  const [selected, setSelected] = useState<Set<string>>(new Set(spendRequests.map((sr) => sr.id)))
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [remarks, setRemarks] = useState<Record<string, string>>({})
   const [approvedAmounts, setApprovedAmounts] = useState<Record<string, string>>({})
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
@@ -69,14 +68,15 @@ export function useApprovalChecklist(spendRequests: SpendRequest[], initiativeId
   const rejectSpendRequest = useRejectSpendRequest(initiativeId)
 
   // Re-sync selection when the underlying pending *set* actually changes (e.g.
-  // after a prior approve, or navigating between initiatives) — always start
-  // fully checked. Keyed on the joined ids, not the array reference, since the
-  // caller may recompute a fresh-but-equal array every render (a `.filter()`
-  // inline) — depending on the array itself would re-fire this every render
-  // and loop forever.
+  // after a prior approve, or navigating between initiatives) — always back to
+  // nothing selected, so the approver chooses explicitly every time rather
+  // than everything starting pre-checked. Keyed on the joined ids, not the
+  // array reference, since the caller may recompute a fresh-but-equal array
+  // every render (a `.filter()` inline) — depending on the array itself would
+  // re-fire this every render and loop forever.
   const idsKey = spendRequests.map((sr) => sr.id).join(",")
   useEffect(() => {
-    setSelected(new Set(idsKey ? idsKey.split(",") : []))
+    setSelected(new Set())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsKey])
 
@@ -187,6 +187,10 @@ interface TableProps {
   initiativeNames?: Map<string, string>
   /** Column-header filter/sort — only the cross-initiative queue passes this. */
   controls?: QueueControls
+  /** A single-initiative page shows the request's one overall owner in its own
+   * header instead — the per-line "Requested By" here would be redundant (and
+   * can differ line to line, which doesn't fit a single top-of-page name). */
+  hideRequestedBy?: boolean
 }
 
 interface Group {
@@ -231,10 +235,10 @@ function selectedTotals(spendRequests: SpendRequest[], state: ChecklistState): {
 
 /** Just the table — no button, no outer border — for a page that places
  * "Approve" elsewhere and wants to control its own container styling. */
-export function ApprovalTable({ spendRequests, state, initiativeNames, controls }: TableProps) {
+export function ApprovalTable({ spendRequests, state, initiativeNames, controls, hideRequestedBy }: TableProps) {
   if (spendRequests.length === 0) return null
   const groups = groupByInitiative(spendRequests, initiativeNames)
-  const columnCount = controls ? 7 : 6
+  const columnCount = controls ? 6 : 5
 
   return (
     <>
@@ -269,21 +273,6 @@ export function ApprovalTable({ spendRequests, state, initiativeNames, controls 
               <Checkbox checked={state.allSelected} onCheckedChange={(v) => state.toggleAll(!!v)} aria-label="Select all" />
             </TableHead>
             <TableHead className="max-w-[130px]">Description</TableHead>
-            {controls ? (
-              <SearchableColumnHead
-                value={controls.reportedBy.value}
-                onChange={controls.reportedBy.onChange}
-                options={controls.reportedBy.options}
-                query={controls.reportedBy.query}
-                onQueryChange={controls.reportedBy.onQueryChange}
-                placeholder="Requested By"
-                selectedLabel={controls.reportedBy.selectedLabel}
-                emptyMessage={controls.reportedBy.query.trim() ? "No matching people." : "Start typing a name…"}
-                className="max-w-[160px]"
-              />
-            ) : (
-              <TableHead className="max-w-[100px]">Requested By</TableHead>
-            )}
             <TableHead className="max-w-[100px]">Category</TableHead>
             {controls ? (
               <FilterableColumnHead label="Status" value={controls.status.value} onChange={controls.status.onChange} options={controls.status.options} />
@@ -310,6 +299,11 @@ export function ApprovalTable({ spendRequests, state, initiativeNames, controls 
                     <span className="ml-2 text-xs font-medium text-muted-foreground">
                       {group.rows.length} spend request{group.rows.length === 1 ? "" : "s"}
                     </span>
+                    {!hideRequestedBy && group.rows[0] && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        · {group.rows[0].created_by.name}
+                      </span>
+                    )}
                   </TableCell>
                 </TableRow>
               )}
@@ -336,16 +330,6 @@ export function ApprovalTable({ spendRequests, state, initiativeNames, controls 
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="max-w-[120px] truncate">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="block truncate">{sr.created_by.name}</span>
-                        </TooltipTrigger>
-                        <TooltipContent>{sr.created_by.name}</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </TableCell>
                   <TableCell className="max-w-[100px] truncate">
                     <TooltipProvider>
                       <Tooltip>
@@ -368,7 +352,7 @@ export function ApprovalTable({ spendRequests, state, initiativeNames, controls 
                       </span>
                       <Input
                         type="number"
-                        min="0"
+                        min="0.01"
                         step="0.01"
                         value={state.approvedAmounts[sr.id] ?? sr.requested_amount}
                         onChange={(e) => state.setApprovedAmount(sr.id, e.target.value)}
@@ -434,6 +418,9 @@ export function ApprovalTable({ spendRequests, state, initiativeNames, controls 
                 <span className="text-xs font-medium text-muted-foreground">
                   {group.rows.length} spend request{group.rows.length === 1 ? "" : "s"}
                 </span>
+                {!hideRequestedBy && group.rows[0] && (
+                  <span className="text-xs text-muted-foreground">· {group.rows[0].created_by.name}</span>
+                )}
               </div>
             )}
             {group.rows.map((sr) => (
@@ -450,7 +437,6 @@ export function ApprovalTable({ spendRequests, state, initiativeNames, controls 
                   </Link>
                 </div>
                 {sr.other_description && <p className="text-xs text-foreground">{sr.other_description}</p>}
-                <MobileField label="Requested By">{sr.created_by.name}</MobileField>
                 <MobileField label="Category">{sr.category.name}</MobileField>
                 {controls && <MobileField label="Status"><StatusBadge status={sr.status} /></MobileField>}
                 <MobileField label={`Approved Amount (${sr.currency})`}>
@@ -460,7 +446,7 @@ export function ApprovalTable({ spendRequests, state, initiativeNames, controls 
                     </span>
                     <Input
                       type="number"
-                      min="0"
+                      min="0.01"
                       step="0.01"
                       value={state.approvedAmounts[sr.id] ?? sr.requested_amount}
                       onChange={(e) => state.setApprovedAmount(sr.id, e.target.value)}

@@ -1,6 +1,6 @@
 import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
-import { ChevronDown, Info, LogOut, Menu, Search, X } from "lucide-react"
+import { Link, useLocation, useNavigate } from "react-router-dom"
+import { ChevronDown, LogOut, Menu, Search, X } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -12,6 +12,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { GlobalSearch } from "@/components/GlobalSearch"
+import { MobileSearchOverlay } from "@/components/MobileSearchOverlay"
+import { BrandLockup } from "@/components/BrandLockup"
+import { CurrencyToggle } from "@/components/CurrencyToggle"
 import { useAuth } from "@/auth/AuthContext"
 import { landingPathForRole } from "@/auth/roleRouting"
 import { APP_NAME } from "@/lib/app-meta"
@@ -28,6 +31,7 @@ function initials(name: string): string {
 export function Topbar({ roleLabel, onOpenNav }: { roleLabel: string; onOpenNav: () => void }) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const name = user?.name ?? ""
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
 
@@ -38,9 +42,10 @@ export function Topbar({ roleLabel, onOpenNav }: { roleLabel: string; onOpenNav:
 
   // On mobile the hamburger and logo always stay put; there's just no room
   // for a persistent search input alongside them, so tapping the search icon
-  // slots a field in between the logo and the info/account icons, rather
-  // than replacing the logo or taking over the whole header.
+  // opens a dedicated full-screen overlay instead (MobileSearchOverlay),
+  // rendered as a sibling of the header so it can cover the whole viewport.
   return (
+    <>
     <header className="col-start-1 row-start-1 flex h-15 items-center gap-2 border-b border-border bg-card px-3 sm:gap-3 sm:px-6 lg:col-start-2 lg:px-8">
       <Button
         variant="ghost"
@@ -55,21 +60,13 @@ export function Topbar({ roleLabel, onOpenNav }: { roleLabel: string; onOpenNav:
       <Link
         to={landingPathForRole(user?.role ?? "member")}
         aria-label={`Go to your home page — ${APP_NAME}`}
-        className="shrink-0 text-base font-bold leading-none tracking-tight text-foreground lg:hidden"
+        className="shrink-0 lg:hidden"
       >
-        Spend<span className="text-primary-text">Track</span>
+        <BrandLockup variant="icon" />
       </Link>
 
-      {mobileSearchOpen && (
-        <GlobalSearch
-          autoFocus
-          onNavigate={() => setMobileSearchOpen(false)}
-          className="min-w-0 flex-1 lg:hidden"
-        />
-      )}
-
       <div className="hidden min-w-0 flex-1 lg:block">
-        <GlobalSearch />
+        <GlobalSearch className="w-full max-w-xl" />
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
@@ -86,11 +83,7 @@ export function Topbar({ roleLabel, onOpenNav }: { roleLabel: string; onOpenNav:
             <Search className="size-4 text-muted-foreground" />
           )}
         </Button>
-        <Button variant="ghost" size="icon" aria-label={`About ${APP_NAME}`} title="About" asChild>
-          <Link to="/about">
-            <Info className="size-4 text-muted-foreground" />
-          </Link>
-        </Button>
+        {pathname === "/dashboard" && <CurrencyToggle />}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -122,5 +115,7 @@ export function Topbar({ roleLabel, onOpenNav }: { roleLabel: string; onOpenNav:
         </DropdownMenu>
       </div>
     </header>
+    {mobileSearchOpen && <MobileSearchOverlay onClose={() => setMobileSearchOpen(false)} />}
+    </>
   )
 }

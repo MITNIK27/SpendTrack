@@ -20,7 +20,7 @@ class InitiativeCreate(BaseModel):
 
     target_audience: str | None = None
     objective: str | None = None
-    estimated_total_budget: Decimal | None = Field(default=None, ge=0)
+    estimated_total_budget: Decimal | None = Field(default=None, gt=0)
     expected_leads_meetings: str | None = None
 
 
@@ -35,7 +35,7 @@ class InitiativeUpdate(BaseModel):
 
     target_audience: str | None = None
     objective: str | None = None
-    estimated_total_budget: Decimal | None = Field(default=None, ge=0)
+    estimated_total_budget: Decimal | None = Field(default=None, gt=0)
     expected_leads_meetings: str | None = None
 
 
@@ -65,6 +65,7 @@ class InitiativeRead(BaseModel):
     name: str
     type: str | None
     category: CategoryRead | None = None
+    category_ids: list[uuid.UUID] = []
     owner: UserRead
     event_date: date | None
     location: str | None

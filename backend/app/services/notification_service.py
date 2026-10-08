@@ -67,13 +67,11 @@ def _initiative_details(initiative: Initiative) -> list[tuple[str, str]]:
     'Location'/'Event date' row. event_date/location/target_audience are
     still shown when present only because older initiatives (created before
     this round) may still carry real values in those columns."""
-    rows = [("Initiative", initiative.name)]
-    if initiative.owner is not None:
-        rows.append(("Submitted by", initiative.owner.name))
-    if initiative.type:
-        rows.append(("Type", initiative.type))
+    rows = [("Request", initiative.name)]
     if initiative.estimated_total_budget is not None:
         rows.append(("Budget", email_templates.format_amount(initiative.estimated_total_budget, initiative.currency)))
+    if initiative.type:
+        rows.append(("Type", initiative.type))
     if initiative.event_date is not None:
         rows.append(("Event date", initiative.event_date.strftime("%d %b %Y")))
     if initiative.location:
@@ -82,6 +80,8 @@ def _initiative_details(initiative: Initiative) -> list[tuple[str, str]]:
         rows.append(("Target audience", initiative.target_audience))
     if initiative.objective:
         rows.append(("Remarks", initiative.objective))
+    if initiative.owner is not None:
+        rows.append(("Submitted by", initiative.owner.name))
     return rows
 
 
@@ -100,7 +100,7 @@ def _spend_request_details(spend_request: SpendRequest, initiative: Initiative) 
     (`other_description` — vendor is no longer collected by the form, hence
     the conditional check below rather than assuming it's always present)."""
     rows = [
-        ("Initiative", initiative.name),
+        ("Request", initiative.name),
         ("Description", spend_request.description or "—"),
     ]
     if spend_request.category is not None:
@@ -166,7 +166,7 @@ def build_spend_request_submitted_email(
         url=url,
     )
     if in_reply_to:
-        subject = f"Re: New initiative for approval: {initiative.name}"
+        subject = f"Re: New request for approval: {initiative.name}"
     return to, subject, body, in_reply_to
 
 

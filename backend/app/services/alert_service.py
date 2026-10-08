@@ -4,6 +4,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models.activity_log import ActivityLog
 from app.models.initiative import Initiative
 from app.models.spend_request import SpendRequest
 from app.schemas.alert import AlertItem
@@ -111,6 +112,66 @@ def _unutilized_budget_alerts(db: Session, today: date) -> list[AlertItem]:
                 )
             )
     return alerts
+
+
+def _pending_spend_requests(db: Session, since: datetime | None = None) -> list[SpendRequest]:
+    conditions = [SpendRequest.status.in_(PENDING_DECISION_STATUSES), SpendRequest.submitted_at.isnot(None)]
+    if since is not None:
+        conditions.append(SpendRequest.submitted_at > since)
+    return list(db.scalars(select(SpendRequest).where(*conditions)).all())
+
+
+def _pending_budget_only_initiatives(db: Session, since: datetime | None = None) -> list[Initiative]:
+    """Initiatives with no spend breakdown of their own yet, still awaiting a
+    decision on their own budget. These have no submitted_at of their own —
+    `since` is answered via the activity log entry submit_initiative writes."""
+    budget_only = [
+        i
+        for i in db.scalars(
+            select(Initiative).where(Initiative.status == "active", Initiative.budget_decision.is_(None))
+        ).all()
+        if i.spend_request_count == 0
+    ]
+    if since is None or not budget_only:
+        return budget_only
+    submitted_ids = set(
+        db.scalars(
+            select(ActivityLog.entity_id).where(
+                ActivityLog.entity_type == "initiative",
+                ActivityLog.action == "initiative_submitted",
+                ActivityLog.entity_id.in_([i.id for i in budget_only]),
+                ActivityLog.created_at > since,
+            )
+        ).all()
+    )
+    return [i for i in budget_only if i.id in submitted_ids]
+
+
+def count_new_requests(db: Session, since: datetime | None) -> int:
+    """Distinct REQUESTS (initiatives) with something newly (re)submitted
+    since the approver's last visit to the Approvals queue — drives the "N
+    New Requests Submitted" banner. Counts *initiatives*, not spend-breakdown
+    rows: one request submitted with a 3-line breakdown is one new request,
+    not three. since=None (never visited) counts every currently-pending
+    request, so a first-time approver sees the real queue size instead of
+    zero."""
+    new_initiative_ids = {sr.initiative_id for sr in _pending_spend_requests(db, since)}
+    new_initiative_ids |= {i.id for i in _pending_budget_only_initiatives(db, since)}
+    return len(new_initiative_ids)
+
+
+def count_pending_items(db: Session) -> int:
+    """Total shown by the Dashboard's fallback "N Pending Items" banner, once
+    there's nothing new left to call out. Every spend-request-level item
+    currently awaiting a decision, regardless of how long it's been waiting
+    (list_alerts's own _pending_too_long_alerts only flags the subset stale
+    3+ days — too narrow to serve as "the total backlog size"), plus the
+    other three alert types' own counts (each about a different entity, so
+    none of this double-counts)."""
+    today = datetime.now(timezone.utc).date()
+    total = len(_pending_spend_requests(db)) + len(_pending_budget_only_initiatives(db))
+    total += len(_overspend_alerts(db)) + len(_initiative_ending_soon_alerts(db, today)) + len(_unutilized_budget_alerts(db, today))
+    return total
 
 
 def list_alerts(db: Session) -> list[AlertItem]:

@@ -8,6 +8,8 @@ import type {
   Category,
   Initiative,
   InitiativeDetail,
+  NewSubmissionCount,
+  PendingItemCount,
   SearchInitiativeResult,
   SearchResponse,
   SpendRequest,
@@ -308,6 +310,40 @@ export function useSpendRequests() {
 
 export function useAlerts() {
   return useQuery<AlertItem[]>({ queryKey: ["reports", "alerts"], queryFn: () => api.get<AlertItem[]>("/reports/alerts") })
+}
+
+export function useNewSubmissionCount() {
+  return useQuery<NewSubmissionCount>({
+    queryKey: ["reports", "new-submission-count"],
+    queryFn: () => api.get<NewSubmissionCount>("/reports/new-submission-count"),
+  })
+}
+
+/** Total currently-pending items (every spend-request-level item awaiting a
+ * decision, regardless of how long it's been waiting, plus the other alert
+ * types) — the Dashboard's fallback "N Pending Items" banner once there's
+ * nothing new left to call out. */
+export function usePendingItemCount() {
+  return useQuery<PendingItemCount>({
+    queryKey: ["reports", "pending-item-count"],
+    queryFn: () => api.get<PendingItemCount>("/reports/pending-item-count"),
+  })
+}
+
+/** Called once when the approver actually opens the Approvals queue — resets
+ * the Dashboard's "N New Requests Submitted" banner back to the ordinary
+ * "N Pending Items" one on their next visit. */
+export function useMarkApprovalsSeen() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post<void>("/reports/approvals-seen"),
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["reports", "new-submission-count"] }),
+        qc.invalidateQueries({ queryKey: ["reports", "pending-item-count"] }),
+      ])
+    },
+  })
 }
 
 export function useGlobalSearch(q: string) {
