@@ -245,7 +245,7 @@ export function ApprovalTable({ spendRequests, state, initiativeNames, controls,
       {controls && (
         <div className="flex flex-wrap items-center gap-2 border-b border-border p-2 lg:hidden">
           <MobileFilterButton icon={ListFilter} value={controls.status.value} onChange={controls.status.onChange} options={controls.status.options} placeholder="Status" />
-          <div className="w-40">
+          <div className="min-w-[140px] flex-1">
             <SearchableCombobox
               value={controls.reportedBy.value}
               onChange={controls.reportedBy.onChange}
@@ -411,16 +411,14 @@ export function ApprovalTable({ spendRequests, state, initiativeNames, controls,
           return (
           <div key={group.key} className="flex flex-col gap-3">
             {group.name !== null && (
-              <div className="flex items-baseline gap-2 px-1">
-                <Link to={`/initiatives/${group.key}`} className="text-sm font-bold text-foreground hover:text-primary-text hover:underline">
+              <div className="flex flex-col gap-0.5 px-1">
+                <Link to={`/initiatives/${group.key}`} className="text-lg font-bold text-foreground hover:text-primary-text hover:underline">
                   {group.name}
                 </Link>
                 <span className="text-xs font-medium text-muted-foreground">
                   {group.rows.length} spend request{group.rows.length === 1 ? "" : "s"}
+                  {!hideRequestedBy && group.rows[0] && <> · {group.rows[0].created_by.name}</>}
                 </span>
-                {!hideRequestedBy && group.rows[0] && (
-                  <span className="text-xs text-muted-foreground">· {group.rows[0].created_by.name}</span>
-                )}
               </div>
             )}
             {group.rows.map((sr) => (
@@ -432,7 +430,7 @@ export function ApprovalTable({ spendRequests, state, initiativeNames, controls,
                     onCheckedChange={(v) => state.toggleOne(sr.id, !!v)}
                     aria-label={`Select ${sr.description ?? sr.category.name}`}
                   />
-                  <Link to={`/spend-requests/${sr.id}`} className="font-medium text-primary-text hover:underline">
+                  <Link to={`/spend-requests/${sr.id}`} className="text-base font-medium text-primary-text hover:underline">
                     {sr.description ?? sr.category.name}
                   </Link>
                 </div>

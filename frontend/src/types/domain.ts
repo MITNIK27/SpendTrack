@@ -273,20 +273,13 @@ export interface SearchResponse {
   requests: SearchRequestResult[]
 }
 
-export interface AlertItem {
-  type: string
-  severity: "warning" | "critical"
-  message: string
-  entity_type: "spend_request" | "initiative"
-  entity_id: string
-}
-
-export interface NewSubmissionCount {
-  count: number
-}
-
-export interface PendingItemCount {
-  count: number
+/** Feeds the Dashboard's "Pending Approvals" preview table. */
+export interface LatestPendingRequest {
+  id: string
+  name: string
+  owner_name: string
+  estimated_total_budget: string | null
+  currency: "INR" | "USD"
 }
 
 export interface ActivityLogEntry {

@@ -1,13 +1,13 @@
 import { useMemo } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { cn } from "cn"
-import { Bell, ChevronRight } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { MobileRow } from "@/components/ui/mobile-card-row"
 import { SpendTrendCharts } from "@/components/SpendTrendCharts"
 import { formatMoney } from "@/lib/money"
 import { currentFiscalYear, fyLabel } from "@/lib/fiscal"
-import { useAlerts, useInitiatives, useNewSubmissionCount, usePendingItemCount, useSpendSummary } from "@/api/queries"
+import { useInitiatives, useLatestPendingRequests, useSpendSummary } from "@/api/queries"
 import { useDisplayCurrency } from "@/context/CurrencyContext"
 import type { SpendSummaryFilters } from "@/types/domain"
 
@@ -17,9 +17,7 @@ export default function Dashboard() {
   // kept fetching (cheap, and the commented-out tile below still refers to
   // it) but renamed so the unused-locals check doesn't flag it.
   const { data: _initiatives, isLoading: initiativesLoading } = useInitiatives()
-  const { data: alerts } = useAlerts()
-  const { data: newSubmissions } = useNewSubmissionCount()
-  const { data: pendingItems } = usePendingItemCount()
+  const { data: latestPending } = useLatestPendingRequests()
 
   const { currency: displayCurrency } = useDisplayCurrency()
 
@@ -103,53 +101,50 @@ export default function Dashboard() {
         )
       )}
 
-      {newSubmissions && newSubmissions.count > 0 ? (
-        // A brand-new submission is informational, not a problem the way the
-        // other alerts below are — the same navy-blue "chip-active" tint
-        // used for the "Approval Pending" status badge, distinct from the
-        // amber/red warning-or-critical tones below. Takes priority over the
-        // general alerts banner below; once the approver actually opens
-        // /approvals (marking these seen), this reverts to that banner on
-        // their next visit, re-counted.
-        <Link
-          to="/approvals"
-          className="group mb-8 flex items-center gap-3 border border-chip-active-fg/30 bg-chip-active-bg px-4 py-3 text-sm text-chip-active-fg transition-colors hover:bg-chip-active-fg/15"
-        >
-          <Bell className="size-4 shrink-0" />
-          <span>
-            <strong>{newSubmissions.count}</strong> New Request{newSubmissions.count === 1 ? "" : "s"} Submitted
-          </span>
-          <span className="ml-auto flex items-center gap-1 rounded-md bg-chip-active-fg px-3 py-1.5 text-xs font-semibold text-white transition-colors group-hover:bg-chip-active-fg/90">
-            Review now <ChevronRight className="size-3.5" />
-          </span>
-        </Link>
-      ) : (
-        pendingItems && pendingItems.count > 0 && (() => {
-          // The "critical" styling still comes from list_alerts (overspend)
-          // — pendingItems.count itself is the TOTAL backlog size (every
-          // pending spend-request-level item, regardless of staleness, plus
-          // the other alert types), not just the subset list_alerts flags as
-          // "pending too long."
-          const isCritical = !!alerts?.some((a) => a.severity === "critical")
-          return (
-            <Link
-              to="/approvals"
-              className={`group mb-8 flex items-center gap-3 border px-4 py-3 text-sm transition-colors ${
-                isCritical
-                  ? "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20"
-                  : "border-chip-warning-fg bg-chip-warning-bg text-chip-warning-fg hover:bg-chip-warning-fg/20"
-              }`}
-            >
-              <Bell className="size-4 shrink-0" />
-              <span>
-                <strong>{pendingItems.count}</strong> Pending Item{pendingItems.count === 1 ? "" : "s"}
+      {latestPending && (
+        <div className="mb-8">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-bold">Pending Approvals</h2>
+            {latestPending.length > 0 ? (
+              <Link to="/approvals" className="text-sm text-primary-text underline">
+                View all →
+              </Link>
+            ) : (
+              <span className="text-sm text-muted-foreground" aria-disabled="true">
+                View all →
               </span>
-              <span className="ml-auto flex items-center gap-1 rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-white transition-colors group-hover:bg-destructive/90">
-                Review now <ChevronRight className="size-3.5" />
-              </span>
-            </Link>
-          )
-        })()
+            )}
+          </div>
+
+          {/* One compact, rounded card instead of a full data-grid table —
+             this is a glance preview (3 rows, max), not a browsable table,
+             so it reads lighter: a name + a muted "by X · ₹budget" subline,
+             a small pill button, nothing else. Same layout at every width. */}
+          <div className="rounded-xl border border-border bg-card">
+            {latestPending.length === 0 ? (
+              <p className="px-4 py-6 text-center text-sm text-muted-foreground">No Pending Approvals</p>
+            ) : (
+              <div className="divide-y divide-border">
+                {latestPending.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-foreground">{r.name}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {r.owner_name} · {formatMoney(r.estimated_total_budget, r.currency)}
+                      </div>
+                    </div>
+                    <Link
+                      to={`/initiatives/${r.id}`}
+                      className="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full bg-destructive px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-destructive/90"
+                    >
+                      View<span className="hidden sm:inline"> Request</span> <ChevronRight className="size-3.5" />
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
 

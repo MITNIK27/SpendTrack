@@ -209,7 +209,7 @@ def new_initiative_created(
     draft spend requests were bundled and submitted together with this
     initiative, rendered as one consolidated breakdown table so approvers get
     a single email per submission instead of one per line item."""
-    subject = f"New request for approval: {initiative_name}"
+    subject = f"Marketing Expense Approval Request - {initiative_name}"
     body = _layout(
         preheader=f"{actor_name} submitted '{initiative_name}' for your approval.",
         heading="A new request needs your review",
@@ -230,7 +230,7 @@ def new_initiative_created(
 def new_spend_request_created(
     *, spend_request_description: str, initiative_name: str, actor_name: str, details: list[tuple[str, str]], url: str
 ) -> tuple[str, str]:
-    subject = f"New spend request for approval: {spend_request_description}"
+    subject = f"Marketing Expense Approval Request - {initiative_name}"
     body = _layout(
         preheader=f"{actor_name} submitted a spend request under '{initiative_name}' for your approval.",
         heading="A new spend request needs your review",

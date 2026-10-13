@@ -166,7 +166,7 @@ def build_spend_request_submitted_email(
         url=url,
     )
     if in_reply_to:
-        subject = f"Re: New request for approval: {initiative.name}"
+        subject = f"Re: Marketing Expense Approval Request - {initiative.name}"
     return to, subject, body, in_reply_to
 
 

@@ -1,51 +1,36 @@
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_role
 from app.models.user import User
-from app.schemas.alert import AlertItem, NewSubmissionCount, PendingItemCount
+from app.schemas.pending_request import LatestPendingRequest
 from app.schemas.report import SpendRequestReportRow, SpendSummaryResponse, SpendTrendsResponse
-from app.services import alert_service, report_service
+from app.services import pending_requests_service, report_service
 from app.services.csv_export import csv_response
 from app.services.report_service import ReportFilters
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
-@router.get("/alerts", response_model=list[AlertItem])
-def alerts(
+@router.get("/latest-pending-requests", response_model=list[LatestPendingRequest])
+def latest_pending_requests(
     db: Session = Depends(get_db),
     user: User = Depends(require_role("approver", "admin")),
-) -> list[AlertItem]:
-    return alert_service.list_alerts(db)
-
-
-@router.get("/new-submission-count", response_model=NewSubmissionCount)
-def new_submission_count(
-    db: Session = Depends(get_db),
-    user: User = Depends(require_role("approver", "admin")),
-) -> NewSubmissionCount:
-    return NewSubmissionCount(count=alert_service.count_new_requests(db, user.approvals_last_viewed_at))
-
-
-@router.get("/pending-item-count", response_model=PendingItemCount)
-def pending_item_count(
-    db: Session = Depends(get_db),
-    user: User = Depends(require_role("approver", "admin")),
-) -> PendingItemCount:
-    return PendingItemCount(count=alert_service.count_pending_items(db))
-
-
-@router.post("/approvals-seen", status_code=204)
-def mark_approvals_seen(
-    db: Session = Depends(get_db),
-    user: User = Depends(require_role("approver", "admin")),
-) -> None:
-    user.approvals_last_viewed_at = datetime.now(timezone.utc)
-    db.commit()
+) -> list[LatestPendingRequest]:
+    """Feeds the Dashboard's "Pending Approvals" preview table — the 3
+    most-recently-submitted requests still awaiting a decision."""
+    initiatives = pending_requests_service.latest_pending_requests(db, limit=3)
+    return [
+        LatestPendingRequest(
+            id=i.id,
+            name=i.name,
+            owner_name=i.owner.name,
+            estimated_total_budget=i.estimated_total_budget,
+            currency=i.currency,
+        )
+        for i in initiatives
+    ]
 
 
 @router.get("/spend-summary", response_model=SpendSummaryResponse)

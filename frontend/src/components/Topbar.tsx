@@ -62,14 +62,16 @@ export function Topbar({ roleLabel, onOpenNav }: { roleLabel: string; onOpenNav:
         aria-label={`Go to your home page — ${APP_NAME}`}
         className="shrink-0 lg:hidden"
       >
-        <BrandLockup variant="icon" />
+        {/* No icon on mobile — the $ mark was taking up too much of the
+           already-tight header width; the wordmark alone is enough. */}
+        <BrandLockup logo={false} />
       </Link>
 
       <div className="hidden min-w-0 flex-1 lg:block">
         <GlobalSearch className="w-full max-w-xl" />
       </div>
 
-      <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
+      <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
         <Button
           variant="ghost"
           size="icon"
@@ -88,18 +90,23 @@ export function Topbar({ roleLabel, onOpenNav }: { roleLabel: string; onOpenNav:
           <DropdownMenuTrigger asChild>
             <button
               aria-label="Account menu"
-              className="flex items-center gap-3 rounded-md px-1 py-1 transition-colors hover:bg-muted"
+              className="flex items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-muted sm:gap-3"
             >
               <div className="hidden text-right sm:block">
                 <div className="text-sm font-medium text-foreground">{name}</div>
                 <div className="text-xs text-muted-foreground">{roleLabel}</div>
               </div>
-              <Avatar>
-                <AvatarFallback className="bg-secondary text-secondary-foreground">
-                  {initials(name)}
-                </AvatarFallback>
-              </Avatar>
-              <ChevronDown className="size-3.5 text-muted-foreground" />
+              {/* Avatar + chevron are one unit (the dropdown's own disclosure
+                 arrow) — kept close together, not spread apart by the same
+                 gap that separates the name block from this group. */}
+              <div className="flex items-center gap-1">
+                <Avatar>
+                  <AvatarFallback className="bg-secondary text-secondary-foreground">
+                    {initials(name)}
+                  </AvatarFallback>
+                </Avatar>
+                <ChevronDown className="size-3.5 text-muted-foreground" />
+              </div>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">

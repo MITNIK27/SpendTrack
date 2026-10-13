@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { ClipboardCheck } from "lucide-react"
 import { ApprovalChecklist } from "@/components/ApprovalChecklist"
 import { isInitiativeBudgetPending, PendingInitiativeBudgetRow } from "@/components/InitiativeBudgetDecision"
-import { useInitiatives, useMarkApprovalsSeen, useSpendRequests } from "@/api/queries"
+import { useInitiatives, useSpendRequests } from "@/api/queries"
 import { PENDING_DECISION_STATUSES, type SpendRequestStatus } from "@/types/domain"
 
 type AmountSort = "asc" | "desc" | null
@@ -11,13 +11,6 @@ const NEXT_AMOUNT_SORT: Record<NonNullable<AmountSort> | "none", AmountSort> = {
 export default function ApprovalsDashboard() {
   const { data: spendRequests, isLoading, isError } = useSpendRequests()
   const { data: initiatives } = useInitiatives()
-  const markApprovalsSeen = useMarkApprovalsSeen()
-  // Opening this queue is "the approver reviewed it" — resets the Dashboard's
-  // "N New Requests Submitted" banner back to the ordinary pending-items one.
-  useEffect(() => {
-    markApprovalsSeen.mutate()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
   const [statusFilter, setStatusFilter] = useState<SpendRequestStatus | "all">("all")
   const [reportedByFilter, setReportedByFilter] = useState<string>("")
   const [reportedByLabel, setReportedByLabel] = useState<string | undefined>(undefined)
