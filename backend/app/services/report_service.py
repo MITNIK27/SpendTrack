@@ -226,6 +226,8 @@ def spend_request_rows(db: Session, filters: ReportFilters) -> list[SpendRequest
             business_unit_name=row.business_unit_name or "—",
             requester_name=row.requester_name,
             vendor=row.vendor,
+            currency=row.currency,
+            created_at=row.created_at,
             requested_amount=row.requested_amount,
             approved_amount=row.approved_amount,
             actual_amount=row.actual_amount,

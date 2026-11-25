@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { MobileRow } from "@/components/ui/mobile-card-row"
 import { SpendTrendCharts } from "@/components/SpendTrendCharts"
+import { ReportExportMenu } from "@/components/ReportExportMenu"
 import { formatMoney } from "@/lib/money"
 import { currentFiscalYear, fyLabel } from "@/lib/fiscal"
 import { useInitiatives, useLatestPendingRequests, useSpendSummary } from "@/api/queries"
@@ -40,9 +41,12 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="mb-6">
-        {/* <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Overview</div> */}
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+      <div className="mb-6 flex items-start justify-between gap-3">
+        <div>
+          {/* <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Overview</div> */}
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+        </div>
+        <ReportExportMenu filters={filters} className="mt-1.5" />
       </div>
 
       {initiativesLoading || isLoading ? (

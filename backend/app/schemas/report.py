@@ -18,6 +18,10 @@ class SpendRequestReportRow(BaseModel):
     business_unit_name: str
     requester_name: str
     vendor: str | None
+    # Amounts below are in this row's own currency (not converted) — exports
+    # must show it alongside them, since rows under one report can mix currencies.
+    currency: str
+    created_at: datetime
     requested_amount: Decimal
     approved_amount: Decimal | None
     actual_amount: Decimal | None

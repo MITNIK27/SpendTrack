@@ -1,32 +1,26 @@
 import { useMemo, useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
-import { toast } from "sonner"
-import { Download, ChevronDown, FolderPlus, Pencil, RotateCcw, Trash2 } from "lucide-react"
+import { FolderPlus, Pencil, RotateCcw, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { MobileRow, MobileField } from "@/components/ui/mobile-card-row"
 import { TablePagination, PAGE_SIZES } from "@/components/TablePagination"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { SortableColumnHead } from "@/components/SortableColumnHead"
 import { RequesterCombobox } from "@/components/RequesterCombobox"
 import { RequestsFilterSheet, ALL, ALL_TIME, QUARTERS, MONTHS } from "@/components/RequestsFilterSheet"
 import { InitiativeStatusBadge, deriveOutcome, OUTCOME_DOT_CLASS, OUTCOME_LABELS, type InitiativeOutcome } from "@/components/InitiativeStatusBadge"
 import { useAuth } from "@/auth/AuthContext"
+import { useDisplayCurrency } from "@/context/CurrencyContext"
+import { ReportExportMenu } from "@/components/ReportExportMenu"
 import {
   useBusinessUnits,
   useCategories,
   useDeleteInitiative,
   useInitiatives,
-  spendSummaryQueryString,
 } from "@/api/queries"
-import { ApiError, downloadFile } from "@/api/client"
+import { ApiError } from "@/api/client"
 import { formatMoney } from "@/lib/money"
 import { currentFiscalYear, fiscalYearOptions, fyLabel, fiscalYearOf, fiscalQuarterOf } from "@/lib/fiscal"
 import type { Initiative, SpendSummaryFilters } from "@/types/domain"
@@ -56,6 +50,7 @@ function requestedIsOffBudget(initiative: Initiative): boolean {
 
 export default function MyInitiatives() {
   const { user } = useAuth()
+  const { currency: displayCurrency } = useDisplayCurrency()
   const navigate = useNavigate()
   const location = useLocation()
   const canCreate = user?.role === "member"
@@ -170,17 +165,10 @@ export default function MyInitiatives() {
       category_id: categoryId || undefined,
       business_unit_id: businessUnitId || undefined,
       requester_id: requesterId || undefined,
+      display_currency: displayCurrency,
     }),
-    [isAllTime, fiscalYear, quarter, month, categoryId, businessUnitId, requesterId],
+    [isAllTime, fiscalYear, quarter, month, categoryId, businessUnitId, requesterId, displayCurrency],
   )
-  const exportCsv = async (kind: "spend-summary" | "spend-requests") => {
-    const qs = spendSummaryQueryString(exportFilters)
-    try {
-      await downloadFile(`/reports/${kind}/export${qs ? `?${qs}` : ""}`, `${kind}.csv`)
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Couldn't export this report.")
-    }
-  }
 
   const closeDeleteDialog = () => {
     setPendingDelete(null)
@@ -298,26 +286,14 @@ export default function MyInitiatives() {
                 <RotateCcw className="size-3.5" />
               </Button>
             )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="ml-auto h-8 gap-1.5 bg-card text-muted-foreground">
-                  <Download className="size-3.5" /> Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem className="text-xs" onClick={() => exportCsv("spend-summary")}>
-                  Category Summary (CSV)
-                </DropdownMenuItem>
-                <DropdownMenuItem className="text-xs" onClick={() => exportCsv("spend-requests")}>
-                  Spend Requests (CSV)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ReportExportMenu filters={exportFilters} className="ml-auto" />
           </div>
 
           {/* Desktop filter bar — moved here from the Dashboard, which now
              always shows the current fiscal year only. */}
-          <div className="mb-3 hidden items-center gap-2 overflow-x-auto border-y border-border py-3 lg:flex">
+          <div className="mb-3 hidden items-center gap-2 border-y border-border py-3 lg:flex">
+          {/* The filters scroll on their own so the Export button beside them can never be pushed off-screen. */}
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
             {!canCreate && (
               <>
                 <Select value={fiscalYear} onValueChange={setFiscalYear}>
@@ -413,23 +389,10 @@ export default function MyInitiatives() {
                 <RotateCcw className="size-3.5" />
               </Button>
             )}
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="ml-auto h-8 shrink-0 text-xs">
-                  <Download className="size-3.5" /> Export <ChevronDown className="size-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem className="text-xs" onClick={() => exportCsv("spend-summary")}>
-                  Category Summary (CSV)
-                </DropdownMenuItem>
-                <DropdownMenuItem className="text-xs" onClick={() => exportCsv("spend-requests")}>
-                  Spend Requests (CSV)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
+
+          <ReportExportMenu filters={exportFilters} />
+        </div>
         </>
       )}
 
