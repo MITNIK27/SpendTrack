@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { SubcategoryCombobox } from "@/components/SubcategoryCombobox"
 import { useFxRate } from "@/api/queries"
 import { convert } from "@/lib/fx"
-import { formatMoney, type Currency } from "@/lib/money"
+import { CURRENCIES, currencySymbol, formatMoney, type Currency } from "@/lib/money"
 import type { Category } from "@/types/domain"
 
 export interface SpendBreakdownValue {
@@ -124,7 +124,7 @@ export function SpendBreakdownFields({ value, onChange, categories, categoriesLo
           }
         />
       </TableCell>
-      <TableCell className="block w-full align-top md:table-cell md:w-40">
+      <TableCell className="block w-full align-top md:table-cell md:w-36">
         <span className="mb-1 block text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground md:hidden">
           Amount
         </span>
@@ -133,14 +133,17 @@ export function SpendBreakdownFields({ value, onChange, categories, categoriesLo
         <div className="flex h-8 items-stretch rounded-lg border border-input bg-card transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 has-disabled:opacity-50">
           <Select value={value.currency} onValueChange={(v) => set({ currency: v as Currency })} disabled={!hasSelection}>
             <SelectTrigger
-              className="h-full w-11 shrink-0 gap-0.5 rounded-none rounded-l-lg border-0 border-r border-input bg-transparent px-1.5 shadow-none focus-visible:ring-0 disabled:opacity-100"
+              className="h-full w-auto min-w-11 shrink-0 gap-0.5 rounded-none rounded-l-lg border-0 border-r border-input bg-transparent px-1.5 shadow-none focus-visible:ring-0 disabled:opacity-100"
               aria-label="Currency"
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="INR">₹</SelectItem>
-              <SelectItem value="USD">$</SelectItem>
+              {CURRENCIES.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {currencySymbol(c)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Input
@@ -162,7 +165,7 @@ export function SpendBreakdownFields({ value, onChange, categories, categoriesLo
           </p>
         )}
       </TableCell>
-      <TableCell className="block w-full align-top md:table-cell md:w-[34%]">
+      <TableCell className="block w-full align-top md:table-cell">
         <span className="mb-1 block text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground md:hidden">
           Remarks
         </span>

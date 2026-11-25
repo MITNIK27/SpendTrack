@@ -72,6 +72,7 @@ def _initiative_details(initiative: Initiative) -> list[tuple[str, str]]:
         rows.append(("Budget", email_templates.format_amount(initiative.estimated_total_budget, initiative.currency)))
     if initiative.type:
         rows.append(("Type", initiative.type))
+    rows.append(("Business Unit", initiative.business_unit.name))
     if initiative.event_date is not None:
         rows.append(("Event date", initiative.event_date.strftime("%d %b %Y")))
     if initiative.location:
@@ -105,6 +106,7 @@ def _spend_request_details(spend_request: SpendRequest, initiative: Initiative) 
     ]
     if spend_request.category is not None:
         rows.append(("Category", _category_label(spend_request)))
+    rows.append(("Business Unit", initiative.business_unit.name))
     if spend_request.vendor:
         rows.append(("Vendor", spend_request.vendor))
     rows.append(("Requested amount", email_templates.format_amount(spend_request.requested_amount, spend_request.currency)))

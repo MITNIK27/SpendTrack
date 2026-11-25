@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button"
 import { RequesterCombobox } from "@/components/RequesterCombobox"
 import { fiscalYearOptions, fyLabel } from "@/lib/fiscal"
-import type { Category } from "@/types/domain"
+import type { BusinessUnit, Category } from "@/types/domain"
 import type { InitiativeOutcome } from "@/components/InitiativeStatusBadge"
 
 export const ALL = "__all__"
@@ -50,6 +50,9 @@ interface Props {
   categoryId: string
   onCategoryIdChange: (v: string) => void
   categories: Category[] | undefined
+  businessUnitId: string
+  onBusinessUnitIdChange: (v: string) => void
+  businessUnits: BusinessUnit[] | undefined
   requesterId: string
   onRequesterIdChange: (v: string) => void
   statusFilter: InitiativeOutcome | "all"
@@ -81,6 +84,9 @@ export function RequestsFilterSheet({
   categoryId,
   onCategoryIdChange,
   categories,
+  businessUnitId,
+  onBusinessUnitIdChange,
+  businessUnits,
   requesterId,
   onRequesterIdChange,
   statusFilter,
@@ -180,6 +186,18 @@ export function RequestsFilterSheet({
                 ))}
               </SelectContent>
             </Select>
+
+            {!restrictedToBasicFilters && (
+              <Select value={businessUnitId || ALL} onValueChange={(v) => onBusinessUnitIdChange(v === ALL ? "" : v)}>
+                <SelectTrigger className="h-11 w-full text-base"><SelectValue placeholder="All Business Units" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>All Business Units</SelectItem>
+                  {businessUnits?.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
             <Select value={statusFilter} onValueChange={(v) => onStatusFilterChange(v as InitiativeOutcome | "all")}>
               <SelectTrigger className="h-11 w-full text-base"><SelectValue placeholder="All Statuses" /></SelectTrigger>

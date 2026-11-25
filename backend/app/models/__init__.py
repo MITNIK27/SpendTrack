@@ -2,7 +2,9 @@ from app.core.db import Base
 from app.models import associations  # noqa: F401 — registers the M:N association tables
 from app.models.activity_log import ActivityLog
 from app.models.approval_action import ApprovalAction
+from app.models.business_unit import BusinessUnit
 from app.models.category import Category, Subcategory
+from app.models.fx_rate import FxRate
 from app.models.initiative import Initiative
 from app.models.log_entry import LogEntry
 from app.models.spend_request import SpendRequest
@@ -12,6 +14,8 @@ from app.models.user import User
 __all__ = [
     "Base",
     "User",
+    "BusinessUnit",
+    "FxRate",
     "Category",
     "Subcategory",
     "Initiative",

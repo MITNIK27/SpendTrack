@@ -114,7 +114,7 @@ export default function InitiativeDetail() {
         <div>
           <BackButton to={user?.role === "member" ? "/" : "/initiatives"} />
           <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-            {initiative.type ?? "Marketing Request"}
+            {initiative.type ?? "Marketing Request"} · {initiative.business_unit.name}
           </div>
           <h1 className="text-3xl font-bold">{initiative.name}</h1>
           <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
@@ -261,7 +261,9 @@ export default function InitiativeDetail() {
                               <div className="text-xs font-medium text-warning">Awaiting approval</div>
                             )}
                           </TableCell>
-                          <TableCell className="align-top whitespace-normal">{sr.category.name}</TableCell>
+                          <TableCell className="align-top whitespace-normal">
+                            {sr.category.name}
+                          </TableCell>
                           <TableCell className="align-top tabular-nums">{formatMoney(sr.requested_amount, sr.currency)}</TableCell>
                           <TableCell className="align-top">
                             <div className="flex flex-wrap items-center gap-1.5">

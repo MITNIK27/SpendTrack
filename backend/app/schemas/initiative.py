@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.business_unit import BusinessUnitRead
 from app.schemas.category import CategoryRead
 from app.schemas.spend_request import SpendRequestRead
 from app.schemas.user import UserRead
@@ -13,6 +14,7 @@ class InitiativeCreate(BaseModel):
     name: str = Field(min_length=1)
     type: str | None = None
     category_id: uuid.UUID | None = None
+    business_unit_id: uuid.UUID | None = None
     event_date: date | None = None
     location: str | None = None
     currency: str = "INR"
@@ -28,6 +30,7 @@ class InitiativeUpdate(BaseModel):
     name: str | None = None
     type: str | None = None
     category_id: uuid.UUID | None = None
+    business_unit_id: uuid.UUID | None = None
     event_date: date | None = None
     location: str | None = None
     currency: str | None = None
@@ -66,6 +69,7 @@ class InitiativeRead(BaseModel):
     type: str | None
     category: CategoryRead | None = None
     category_ids: list[uuid.UUID] = []
+    business_unit: BusinessUnitRead
     owner: UserRead
     event_date: date | None
     location: str | None

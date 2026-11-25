@@ -17,7 +17,8 @@ export default function ApprovalsDashboard() {
   const [reportedByQuery, setReportedByQuery] = useState("")
   const [amountSort, setAmountSort] = useState<AmountSort>(null)
   const initiativeNames = useMemo(
-    () => new Map((initiatives ?? []).map((i) => [i.id, i.name])),
+    // Business unit rides along in the label — it's per-request now, so the group header is the one place the queue shows it.
+    () => new Map((initiatives ?? []).map((i) => [i.id, `${i.name} · ${i.business_unit.name}`])),
     [initiatives],
   )
 

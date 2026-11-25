@@ -2,8 +2,8 @@
 
 Deletes (in FK-safe order): approval_actions, spend_request_line_items,
 spend_request_team_members, spend_requests, initiative_team_members,
-initiatives, and activity_logs. Leaves users, categories, and subcategories
-untouched.
+initiatives, activity_logs, and logs. Leaves users, categories, and
+subcategories untouched.
 
 Usage:
     python -m scripts.reset_test_data            # dry run — shows counts only
@@ -24,6 +24,7 @@ TABLES_IN_DELETE_ORDER = [
     "initiative_team_members",
     "initiatives",
     "activity_logs",
+    "logs",
 ]
 
 

@@ -19,7 +19,13 @@ import { RequesterCombobox } from "@/components/RequesterCombobox"
 import { RequestsFilterSheet, ALL, ALL_TIME, QUARTERS, MONTHS } from "@/components/RequestsFilterSheet"
 import { InitiativeStatusBadge, deriveOutcome, OUTCOME_DOT_CLASS, OUTCOME_LABELS, type InitiativeOutcome } from "@/components/InitiativeStatusBadge"
 import { useAuth } from "@/auth/AuthContext"
-import { useCategories, useDeleteInitiative, useInitiatives, spendSummaryQueryString } from "@/api/queries"
+import {
+  useBusinessUnits,
+  useCategories,
+  useDeleteInitiative,
+  useInitiatives,
+  spendSummaryQueryString,
+} from "@/api/queries"
 import { ApiError, downloadFile } from "@/api/client"
 import { formatMoney } from "@/lib/money"
 import { currentFiscalYear, fiscalYearOptions, fyLabel, fiscalYearOf, fiscalQuarterOf } from "@/lib/fiscal"
@@ -55,6 +61,7 @@ export default function MyInitiatives() {
   const canCreate = user?.role === "member"
   const { data: initiatives, isLoading, isError } = useInitiatives()
   const { data: categories } = useCategories()
+  const { data: businessUnits } = useBusinessUnits()
   const deleteInitiative = useDeleteInitiative()
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZES[1])
@@ -78,6 +85,7 @@ export default function MyInitiatives() {
     () => (location.state as { categoryId?: string } | null)?.categoryId ?? "",
   )
   const [requesterId, setRequesterId] = useState("")
+  const [businessUnitId, setBusinessUnitId] = useState("")
   const [filterSheetOpen, setFilterSheetOpen] = useState(false)
   const isAllTime = fiscalYear === ALL_TIME
 
@@ -87,6 +95,7 @@ export default function MyInitiatives() {
     .filter((i) => !quarter || fiscalQuarterOf(new Date(i.created_at)) === Number(quarter))
     .filter((i) => !month || new Date(i.created_at).getMonth() + 1 === Number(month))
     .filter((i) => !categoryId || i.category_ids.includes(categoryId))
+    .filter((i) => !businessUnitId || i.business_unit.id === businessUnitId)
     .filter((i) => !requesterId || i.owner.id === requesterId)
     .sort((a, b) => {
       if (sortBy === "date") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -123,17 +132,26 @@ export default function MyInitiatives() {
   // surface is Category + Status only, so only those two count here.
   const isFiltered = canCreate
     ? !!categoryId || statusFilter !== "all"
-    : fiscalYear !== DEFAULT_FISCAL_YEAR || !!quarter || !!month || !!categoryId || !!requesterId || statusFilter !== "all"
+    : fiscalYear !== DEFAULT_FISCAL_YEAR || !!quarter || !!month || !!categoryId || !!businessUnitId || !!requesterId ||
+      statusFilter !== "all"
   const activeFilterCount = canCreate
     ? [!!categoryId, statusFilter !== "all"].filter(Boolean).length
-    : [fiscalYear !== DEFAULT_FISCAL_YEAR, !!quarter, !!month, !!categoryId, !!requesterId, statusFilter !== "all"]
-        .filter(Boolean).length
+    : [
+        fiscalYear !== DEFAULT_FISCAL_YEAR,
+        !!quarter,
+        !!month,
+        !!categoryId,
+        !!businessUnitId,
+        !!requesterId,
+        statusFilter !== "all",
+      ].filter(Boolean).length
 
   const resetFilters = () => {
     setFiscalYear(canCreate ? ALL_TIME : DEFAULT_FISCAL_YEAR)
     setQuarter("")
     setMonth("")
     setCategoryId("")
+    setBusinessUnitId("")
     setRequesterId("")
     changeStatusFilter("all")
   }
@@ -150,9 +168,10 @@ export default function MyInitiatives() {
       quarter: quarter ? Number(quarter) : undefined,
       month: month ? Number(month) : undefined,
       category_id: categoryId || undefined,
+      business_unit_id: businessUnitId || undefined,
       requester_id: requesterId || undefined,
     }),
-    [isAllTime, fiscalYear, quarter, month, categoryId, requesterId],
+    [isAllTime, fiscalYear, quarter, month, categoryId, businessUnitId, requesterId],
   )
   const exportCsv = async (kind: "spend-summary" | "spend-requests") => {
     const qs = spendSummaryQueryString(exportFilters)
@@ -253,6 +272,9 @@ export default function MyInitiatives() {
               categoryId={categoryId}
               onCategoryIdChange={setCategoryId}
               categories={categories}
+              businessUnitId={businessUnitId}
+              onBusinessUnitIdChange={setBusinessUnitId}
+              businessUnits={businessUnits}
               requesterId={requesterId}
               onRequesterIdChange={setRequesterId}
               statusFilter={statusFilter}
@@ -347,6 +369,20 @@ export default function MyInitiatives() {
                 ))}
               </SelectContent>
             </Select>
+
+            {!canCreate && (
+              <Select value={businessUnitId || ALL} onValueChange={(v) => setBusinessUnitId(v === ALL ? "" : v)}>
+                <SelectTrigger className="h-8 shrink-0 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none">
+                  <SelectValue placeholder="All Business Units" />
+                </SelectTrigger>
+                <SelectContent className="!max-h-40" align="start">
+                  <SelectItem value={ALL}>All Business Units</SelectItem>
+                  {businessUnits?.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
             <Select value={statusFilter} onValueChange={(v) => changeStatusFilter(v as InitiativeOutcome | "all")}>
               <SelectTrigger className="h-8 shrink-0 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none">

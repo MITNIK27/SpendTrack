@@ -93,13 +93,14 @@ def export_spend_requests_csv(
     return csv_response(
         filename="spend-requests.csv",
         header=[
-            "Request ID", "Description", "Initiative", "Category", "Requester", "Vendor",
+            "Request ID", "Description", "Initiative", "Category", "Business Unit", "Requester", "Vendor",
             "Requested", "Approved", "Actual", "Status",
             "Decided By", "Decision Comment",
         ],
         rows=[
             [
-                row.id, row.description or "", row.initiative_name, row.category_name, row.requester_name,
+                row.id, row.description or "", row.initiative_name, row.category_name, row.business_unit_name,
+                row.requester_name,
                 row.vendor or "", row.requested_amount,
                 row.approved_amount or "", row.actual_amount or "", row.status,
                 row.decided_by or "", row.decision_comment or "",

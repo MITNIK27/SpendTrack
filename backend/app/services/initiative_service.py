@@ -1,9 +1,11 @@
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models.business_unit import CORPORATE_BUSINESS_UNIT_ID, BusinessUnit
 from app.models.initiative import INITIATIVE_BUDGET_DECISIONS, Initiative
 from app.models.spend_request import SpendRequest
 from app.models.user import User
@@ -17,6 +19,16 @@ _ACTIVITY_ACTION_BY_BUDGET_DECISION = {
     "approve": "initiative_budget_approved",
     "reject": "initiative_budget_rejected",
 }
+
+
+def resolve_business_unit_id(db: Session, business_unit_id) -> uuid.UUID:
+    """Validates a chosen business unit; no choice means Corporate."""
+    if business_unit_id is None:
+        return CORPORATE_BUSINESS_UNIT_ID
+    business_unit = db.get(BusinessUnit, business_unit_id)
+    if business_unit is None or not business_unit.is_active:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown or inactive business unit.")
+    return business_unit.id
 
 
 def sync_status(db: Session, *, initiative: Initiative) -> None:

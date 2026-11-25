@@ -273,7 +273,7 @@ export function ApprovalTable({ spendRequests, state, initiativeNames, controls,
               <Checkbox checked={state.allSelected} onCheckedChange={(v) => state.toggleAll(!!v)} aria-label="Select all" />
             </TableHead>
             <TableHead className="max-w-[130px]">Description</TableHead>
-            <TableHead className="max-w-[100px]">Category</TableHead>
+            <TableHead className="max-w-[100px]">Category / BU</TableHead>
             {controls ? (
               <FilterableColumnHead label="Status" value={controls.status.value} onChange={controls.status.onChange} options={controls.status.options} />
             ) : null}

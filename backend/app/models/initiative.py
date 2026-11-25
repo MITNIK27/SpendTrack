@@ -2,12 +2,13 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, Enum, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, Numeric, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.models.associations import initiative_team_members
+from app.models.business_unit import CORPORATE_BUSINESS_UNIT_ID
 
 INITIATIVE_STATUSES = ("draft", "active", "closed", "archived")
 INITIATIVE_BUDGET_DECISIONS = ("approved", "rejected")
@@ -33,6 +34,15 @@ class Initiative(Base):
     # initiative has no spend breakdown of its own (each breakdown row's own
     # category drives reporting once one exists).
     category_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=True)
+    # Chosen once for the whole request — every spend request under it, and every
+    # report row built from them, inherits this business unit.
+    business_unit_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("business_units.id"),
+        nullable=False,
+        default=CORPORATE_BUSINESS_UNIT_ID,
+        server_default=text(f"'{CORPORATE_BUSINESS_UNIT_ID}'"),
+    )
 
     target_audience: Mapped[str | None] = mapped_column(Text, nullable=True)
     objective: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -68,6 +78,7 @@ class Initiative(Base):
 
     owner: Mapped["User"] = relationship(foreign_keys=[owner_id])  # noqa: F821
     category: Mapped["Category | None"] = relationship()  # noqa: F821
+    business_unit: Mapped["BusinessUnit"] = relationship()  # noqa: F821
     budget_decided_by: Mapped["User | None"] = relationship(foreign_keys=[budget_decided_by_id])  # noqa: F821
     spend_requests: Mapped[list["SpendRequest"]] = relationship(  # noqa: F821
         back_populates="initiative", order_by="SpendRequest.created_at"
@@ -144,11 +155,13 @@ class Initiative(Base):
                 total += amount
             return total
 
+        from sqlalchemy.orm import object_session
+
         from app.services import fx_service  # local: models shouldn't import services at module scope
 
-        rate, _, _ = fx_service.get_usd_inr_rate()
+        rates = fx_service.current_rates(object_session(self))
         for amount, cur in amounts:
-            total += fx_service.convert(amount, cur, self.currency, rate)
+            total += fx_service.convert(amount, cur, self.currency, rates)
         return total
 
     @property

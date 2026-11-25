@@ -79,8 +79,8 @@ def _details_table(rows: list[tuple[str, str]]) -> str:
 
 
 def _breakdown_table(rows: list[tuple[str, str, str]]) -> str:
-    """A multi-row, 3-column (Description / Category / Amount) table — the
-    spend-request breakdown submitted alongside a new initiative, so an
+    """A multi-row (Description / Category / Amount) table —
+    the spend-request breakdown submitted alongside a new initiative, so an
     approver sees the whole ask in one email instead of one per line item."""
     if not rows:
         return ""

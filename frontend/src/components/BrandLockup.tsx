@@ -20,7 +20,7 @@ export function BrandLockup({
   className,
 }: {
   on?: "light" | "dark"
-  size?: "default" | "md" | "lg"
+  size?: "default" | "md" | "lg" | "xl"
   logo?: boolean
   logoPosition?: "before" | "after"
   variant?: "cobrand" | "icon"
@@ -31,7 +31,8 @@ export function BrandLockup({
   className?: string
 }) {
   const isDark = on === "dark"
-  const isLarge = size === "lg"
+  const isXLarge = size === "xl"
+  const isLarge = size === "lg" || isXLarge
   const isMedium = size === "md"
   const isIcon = variant === "icon"
   const withIcon = isIcon || showIcon
@@ -41,7 +42,7 @@ export function BrandLockup({
       <span
         className={cn(
           "truncate font-bold leading-none tracking-tight",
-          isLarge ? "text-4xl" : isMedium ? "text-xl" : "text-lg",
+          isXLarge ? "text-4xl sm:text-5xl" : isLarge ? "text-4xl" : isMedium ? "text-xl" : "text-lg",
           isDark ? "text-white" : "text-foreground"
         )}
       >
@@ -50,18 +51,18 @@ export function BrandLockup({
       <span
         className={cn(
           "bg-primary",
-          isLarge ? "mt-2.5 h-1 w-28" : isMedium ? "mt-1.5 h-[3px] w-14" : "mt-1 h-[3px] w-12",
+          isXLarge ? "mt-2.5 h-1 w-28 sm:mt-3 sm:h-1 sm:w-36" : isLarge ? "mt-2.5 h-1 w-28" : isMedium ? "mt-1.5 h-[3px] w-14" : "mt-1 h-[3px] w-12",
         )}
       />
     </div>
   )
 
   const wordmarkWithIcon = withIcon ? (
-    <div className={cn("flex min-w-0 items-center", isLarge ? "gap-4" : isMedium ? "gap-1.5" : "gap-2")}>
+    <div className={cn("flex min-w-0 items-center", isXLarge ? "gap-3 sm:gap-4" : isLarge ? "gap-4" : isMedium ? "gap-1.5" : "gap-2")}>
       <img
         src={brandIcon}
         alt="SpendTrack"
-        className={cn("shrink-0", isLarge ? "size-10" : isMedium ? "size-7" : "size-6")}
+        className={cn("shrink-0", isXLarge ? "size-10 sm:size-12" : isLarge ? "size-10" : isMedium ? "size-7" : "size-6")}
       />
       {wordmark}
     </div>

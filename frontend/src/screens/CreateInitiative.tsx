@@ -89,7 +89,9 @@ export default function CreateInitiative() {
       >
         {({ currency }) => (
           <div className="flex flex-col gap-2">
-            <h3 className="text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">Add Spend Breakdown</h3>
+            <h3 className="text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+              Add Spend Breakdown (Optional)
+            </h3>
 
             <div className="border border-border bg-card">
               <Table className="table-fixed">
@@ -113,8 +115,8 @@ export default function CreateInitiative() {
                         </TooltipProvider>
                       </span>
                     </TableHead>
-                    <TableHead className="w-40">Amount</TableHead>
-                    <TableHead className="w-[34%]">Remarks</TableHead>
+                    <TableHead className="w-36">Amount</TableHead>
+                    <TableHead>Remarks</TableHead>
                     <TableHead className="w-20" />
                   </TableRow>
                 </TableHeader>

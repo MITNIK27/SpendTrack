@@ -28,6 +28,7 @@ def send_email(
     *,
     message_id: str | None = None,
     in_reply_to: str | None = None,
+    inline_images: dict[str, Path] | None = None,
 ) -> None:
     recipients = [addr for addr in to if addr]
     if not recipients:
@@ -59,6 +60,12 @@ def send_email(
     if f"cid:{LOGO_CID}" in html_body and _LOGO_PATH.exists():
         html_part = message.get_payload()[-1]
         html_part.add_related(_LOGO_PATH.read_bytes(), maintype="image", subtype="png", cid=f"<{LOGO_CID}>")
+
+    # Extra CID images for one-off emails (e.g. the launch announcement's
+    # SpendTrack lockup) — cid -> PNG path, attached only if referenced.
+    for cid, path in (inline_images or {}).items():
+        if f"cid:{cid}" in html_body and path.exists():
+            message.get_payload()[-1].add_related(path.read_bytes(), maintype="image", subtype="png", cid=f"<{cid}>")
 
     try:
         if settings.smtp_use_ssl:

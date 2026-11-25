@@ -13,6 +13,16 @@ backend/.pytest_cache/
 backend/tests/
 backend/firebase-service-account.json
 backend/backup_*.sql
+backend/backup_*.json
+# Database backups (scripts/backup_db.py writes here) — contain user data, never commit.
+backend/backups/
+
+# One-off launch-announcement email: its assets, preview HTML and send script
+# are internal tooling, not part of the app. (email-logo.png stays tracked —
+# the app's own notification emails attach it at runtime.)
+backend/app/assets/launch-*.png
+backend/scripts/send_launch_email.py
+docs/launch-email/
 # Deployment packaging output (produced on demand by robocopy, not source —
 # see the deployment workflow) — mirrors /backend-deploy.zip below.
 backend/dist/

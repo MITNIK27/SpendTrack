@@ -24,9 +24,9 @@ SPEND_REQUEST_STATUSES = (
 # Statuses in which the financial fields (amount, category, ...) may still be edited.
 EDITABLE_STATUSES = ("draft", "changes_requested")
 
-# The only two currencies the app understands anywhere (fx_service.convert()
-# and the frontend's Currency type are both hardcoded to this pair).
-SUPPORTED_CURRENCIES = ("INR", "USD")
+# Must match the frontend's Currency type (frontend/src/lib/money.ts) and the
+# currencies fx_service knows how to price.
+SUPPORTED_CURRENCIES = ("INR", "USD", "AED", "EUR")
 
 
 class SpendRequest(Base):

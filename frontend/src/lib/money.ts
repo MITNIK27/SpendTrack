@@ -1,8 +1,19 @@
-export type Currency = "INR" | "USD"
+/** Must match SUPPORTED_CURRENCIES in backend/app/models/spend_request.py. */
+export const CURRENCIES = ["INR", "USD", "AED", "EUR"] as const
+export type Currency = (typeof CURRENCIES)[number]
 
 const LOCALE_BY_CURRENCY: Record<Currency, string> = {
   INR: "en-IN",
   USD: "en-US",
+  AED: "en-AE",
+  EUR: "en-IE",
+}
+
+const SYMBOL_BY_CURRENCY: Record<Currency, string> = {
+  INR: "₹",
+  USD: "$",
+  AED: "AED",
+  EUR: "€",
 }
 
 const formatters: Partial<Record<Currency, Intl.NumberFormat>> = {}
@@ -29,5 +40,5 @@ export function formatMoney(amount: string | number | null | undefined, currency
 }
 
 export function currencySymbol(currency: Currency): string {
-  return currency === "USD" ? "$" : "₹"
+  return SYMBOL_BY_CURRENCY[currency] ?? currency
 }

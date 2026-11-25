@@ -7,12 +7,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { useCategories } from "@/api/queries"
+import { useBusinessUnits, useCategories } from "@/api/queries"
 import type { Currency } from "@/lib/money"
 
 export interface InitiativeFormInitial {
   name?: string
   type?: string | null
+  business_unit_id?: string
   currency?: Currency
   estimated_total_budget?: string | null
   objective?: string | null
@@ -50,9 +51,15 @@ interface Props {
  * Remarks note instead of separate structured fields. */
 export function InitiativeForm({ initial, submitLabel, pendingLabel, onSubmit, onCancel, secondaryAction, locked, children }: Props) {
   const { data: categories } = useCategories()
+  const { data: businessUnits } = useBusinessUnits()
   const sortedTypes = [...(categories ?? [])].sort((a, b) => a.name.localeCompare(b.name))
   const [name, setName] = useState(initial?.name ?? "")
   const [type, setType] = useState(initial?.type ?? "")
+  // "" until the user picks one — the select shows Corporate meanwhile, and the
+  // backend stores Corporate when none is sent (same default the spend rows used to have).
+  const [businessUnitId, setBusinessUnitId] = useState(initial?.business_unit_id ?? "")
+  const selectedBusinessUnitId =
+    businessUnitId || businessUnits?.find((b) => b.name === "Corporate")?.id || ""
   const [currency, setCurrency] = useState<Currency>(initial?.currency ?? "INR")
   const [estimatedTotalBudget, setEstimatedTotalBudget] = useState(initial?.estimated_total_budget ?? "")
   const [remarks, setRemarks] = useState(initial?.objective ?? "")
@@ -90,6 +97,7 @@ export function InitiativeForm({ initial, submitLabel, pendingLabel, onSubmit, o
       name,
       type,
       category_id: category?.id ?? null,
+      business_unit_id: selectedBusinessUnitId || null,
       currency,
       objective: remarks || null,
       estimated_total_budget: budget,
@@ -127,7 +135,7 @@ export function InitiativeForm({ initial, submitLabel, pendingLabel, onSubmit, o
               <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Gartner Conference 2026" />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto_1fr]">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_1fr_auto_1fr]">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="type">What is it related to? *</Label>
                 <Select value={type} onValueChange={setType} disabled={locked}>
@@ -142,6 +150,23 @@ export function InitiativeForm({ initial, submitLabel, pendingLabel, onSubmit, o
                 </Select>
               </div>
               <div className="flex flex-col gap-2">
+                <Label htmlFor="businessUnit">Business Unit</Label>
+                <Select
+                  value={selectedBusinessUnitId}
+                  onValueChange={setBusinessUnitId}
+                  disabled={locked || !businessUnits}
+                >
+                  <SelectTrigger id="businessUnit" className="w-full">
+                    <SelectValue placeholder="Corporate" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {businessUnits?.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-2">
                 <Label htmlFor="currency">Currency</Label>
                 <Select value={currency} onValueChange={(v) => setCurrency(v as Currency)} disabled={locked}>
                   <SelectTrigger id="currency" className="w-full md:w-28">
@@ -150,6 +175,8 @@ export function InitiativeForm({ initial, submitLabel, pendingLabel, onSubmit, o
                   <SelectContent>
                     <SelectItem value="INR">₹ INR</SelectItem>
                     <SelectItem value="USD">$ USD</SelectItem>
+                    <SelectItem value="AED">AED</SelectItem>
+                    <SelectItem value="EUR">€ EUR</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -169,7 +196,7 @@ export function InitiativeForm({ initial, submitLabel, pendingLabel, onSubmit, o
 
             {locked && (
               <p className="text-xs text-muted-foreground">
-                What it's related to, the currency, and the total budget are locked once a request has been
+                What it's related to, the business unit, the currency, and the total budget are locked once a request has been
                 submitted — only the name and remarks can still be changed.
               </p>
             )}

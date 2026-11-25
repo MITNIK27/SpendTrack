@@ -38,17 +38,16 @@ class ReportFilters:
     month: int | None = None
     category_id: uuid.UUID | None = None
     subcategory_id: uuid.UUID | None = None
+    business_unit_id: uuid.UUID | None = None
     initiative_id: uuid.UUID | None = None
     requester_id: uuid.UUID | None = None
     status_filter: str | None = None
     # Bypasses fiscal-year scoping entirely — "all time" ("past approvals" regardless
     # of period). Quarter/month, if also given, still apply per-row across every year.
     all_time: bool = False
-    # Every matched row's approved/actual amount is converted to this currency
-    # before being summed — see fx_service.convert(). Rows are individually
-    # currency-tagged (initiatives/spend requests can be INR or USD), so
-    # without this every total below would silently add dollars and rupees
-    # together as if they were the same unit.
+    # Every matched row's amounts are converted to this currency, at the rate
+    # logged for that row's own date, before being summed — rows are
+    # individually currency-tagged, so a plain sum would add mismatched units.
     display_currency: str = "INR"
 
 
@@ -69,6 +68,8 @@ class ReportableSpend:
     category_id: uuid.UUID | None
     category: Category | None
     subcategory_id: uuid.UUID | None
+    business_unit_id: uuid.UUID | None
+    business_unit_name: str | None
     requester_id: uuid.UUID
     requester_name: str
     vendor: str | None
@@ -93,6 +94,8 @@ def _reportable_from_spend_request(sr: SpendRequest, latest_action: ApprovalActi
         category_id=sr.category_id,
         category=sr.category,
         subcategory_id=sr.subcategory_id,
+        business_unit_id=sr.initiative.business_unit_id,
+        business_unit_name=sr.initiative.business_unit.name,
         requester_id=sr.created_by_id,
         requester_name=sr.created_by.name,
         vendor=sr.vendor,
@@ -118,6 +121,8 @@ def _reportable_from_initiative_budget(initiative: Initiative) -> ReportableSpen
         category_id=initiative.category_id,
         category=initiative.category,
         subcategory_id=None,
+        business_unit_id=initiative.business_unit_id,
+        business_unit_name=initiative.business_unit.name,
         requester_id=initiative.owner_id,
         requester_name=initiative.owner.name,
         vendor=None,
@@ -179,6 +184,8 @@ def matching_spend_requests(db: Session, filters: ReportFilters) -> tuple[int | 
     # correct, not a special case: it simply never has one.
     if filters.subcategory_id is not None:
         candidates = [r for r in candidates if r.subcategory_id == filters.subcategory_id]
+    if filters.business_unit_id is not None:
+        candidates = [r for r in candidates if r.business_unit_id == filters.business_unit_id]
     if filters.initiative_id is not None:
         candidates = [r for r in candidates if r.initiative_id == filters.initiative_id]
     if filters.requester_id is not None:
@@ -216,6 +223,7 @@ def spend_request_rows(db: Session, filters: ReportFilters) -> list[SpendRequest
             initiative_id=row.initiative_id,
             initiative_name=row.initiative_name,
             category_name=row.category.name if row.category else "Uncategorized",
+            business_unit_name=row.business_unit_name or "—",
             requester_name=row.requester_name,
             vendor=row.vendor,
             requested_amount=row.requested_amount,
@@ -233,16 +241,18 @@ def spend_request_rows(db: Session, filters: ReportFilters) -> list[SpendRequest
 
 def spend_summary(db: Session, filters: ReportFilters) -> SpendSummaryResponse:
     target_fiscal_year, matched = matching_spend_requests(db, filters)
-    rate, rate_as_of, rate_is_stale = fx_service.get_usd_inr_rate()
+    book = fx_service.RateBook.load(db)
+    usd_today = book.rate("USD", date.today())
 
     total_requested = Decimal("0")
     total_approved = Decimal("0")
     total_actual = Decimal("0")
     by_category: dict[uuid.UUID, dict] = {}
     for row in matched:
-        requested = fx_service.convert(row.requested_amount, row.currency, filters.display_currency, rate)
-        approved = fx_service.convert(row.approved_amount or Decimal("0"), row.currency, filters.display_currency, rate)
-        actual = fx_service.convert(row.actual_amount or Decimal("0"), row.currency, filters.display_currency, rate)
+        rates = book.rates_on(row.created_at.date())
+        requested = fx_service.convert(row.requested_amount, row.currency, filters.display_currency, rates)
+        approved = fx_service.convert(row.approved_amount or Decimal("0"), row.currency, filters.display_currency, rates)
+        actual = fx_service.convert(row.actual_amount or Decimal("0"), row.currency, filters.display_currency, rates)
         total_requested += requested
         total_approved += approved
         total_actual += actual
@@ -262,9 +272,9 @@ def spend_summary(db: Session, filters: ReportFilters) -> SpendSummaryResponse:
         fiscal_year=target_fiscal_year,
         matched_spend_request_count=len(matched),
         display_currency=filters.display_currency,
-        fx_rate_usd_inr=str(rate),
-        fx_rate_as_of=rate_as_of,
-        fx_rate_is_stale=rate_is_stale,
+        fx_rate_usd_inr=str(usd_today.rate_to_inr),
+        fx_rate_as_of=usd_today.as_of,
+        fx_rate_is_stale=usd_today.is_stale,
         kpis=SpendSummaryKPIs(
             fy_spend_requested=str(total_requested),
             fy_spend_approved=str(total_approved),
@@ -299,7 +309,8 @@ def spend_trends(db: Session, filters: ReportFilters) -> SpendTrendsResponse:
     """
     trend_filters = replace(filters, quarter=None, month=None)
     target_fiscal_year, matched = matching_spend_requests(db, trend_filters)
-    rate, rate_as_of, rate_is_stale = fx_service.get_usd_inr_rate()
+    book = fx_service.RateBook.load(db)
+    usd_today = book.rate("USD", date.today())
 
     monthly_buckets: dict[tuple[int, int], dict] = {}
     quarterly_buckets: dict[int, dict] = {q: {"approved": Decimal("0"), "actual": Decimal("0")} for q in (1, 2, 3, 4)}
@@ -308,8 +319,9 @@ def spend_trends(db: Session, filters: ReportFilters) -> SpendTrendsResponse:
 
     for row in matched:
         classification_date = row.created_at.date()
-        approved = fx_service.convert(row.approved_amount or Decimal("0"), row.currency, filters.display_currency, rate)
-        actual = fx_service.convert(row.actual_amount or Decimal("0"), row.currency, filters.display_currency, rate)
+        rates = book.rates_on(classification_date)
+        approved = fx_service.convert(row.approved_amount or Decimal("0"), row.currency, filters.display_currency, rates)
+        actual = fx_service.convert(row.actual_amount or Decimal("0"), row.currency, filters.display_currency, rates)
 
         month_key = (classification_date.year, classification_date.month)
         month_bucket = monthly_buckets.setdefault(month_key, {"approved": Decimal("0"), "actual": Decimal("0")})
@@ -363,9 +375,9 @@ def spend_trends(db: Session, filters: ReportFilters) -> SpendTrendsResponse:
     return SpendTrendsResponse(
         fiscal_year=target_fiscal_year,
         display_currency=filters.display_currency,
-        fx_rate_usd_inr=str(rate),
-        fx_rate_as_of=rate_as_of,
-        fx_rate_is_stale=rate_is_stale,
+        fx_rate_usd_inr=str(usd_today.rate_to_inr),
+        fx_rate_as_of=usd_today.as_of,
+        fx_rate_is_stale=usd_today.is_stale,
         monthly=monthly,
         quarterly=quarterly,
         category_monthly_average=category_monthly_average,

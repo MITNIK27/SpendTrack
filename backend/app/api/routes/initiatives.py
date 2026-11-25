@@ -4,14 +4,14 @@ from typing import Sequence
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, joinedload, object_session, selectinload
 from sqlalchemy.orm.interfaces import LoaderOption
 
 from app.api.deps import get_current_user, get_db, require_role
 from app.models.approval_action import ApprovalAction
 from app.models.category import Category
 from app.models.initiative import INITIATIVE_STATUSES, Initiative
-from app.models.spend_request import SpendRequest
+from app.models.spend_request import SUPPORTED_CURRENCIES, SpendRequest
 from app.models.user import User
 from app.schemas.initiative import (
     InitiativeBudgetDecisionInput,
@@ -48,6 +48,7 @@ INITIATIVE_LIST_EAGER_LOAD: Sequence[LoaderOption] = (
     # far more than SQLAlchemy's small in-process row-dedup cost.
     joinedload(Initiative.owner),
     joinedload(Initiative.category).selectinload(Category.subcategories),
+    joinedload(Initiative.business_unit),
     joinedload(Initiative.budget_decided_by),
     # Collections: selectinload, so this doesn't multiply the main result set.
     selectinload(Initiative.team_members),
@@ -60,6 +61,7 @@ INITIATIVE_LIST_EAGER_LOAD: Sequence[LoaderOption] = (
 INITIATIVE_DETAIL_EAGER_LOAD: Sequence[LoaderOption] = (
     joinedload(Initiative.owner),
     joinedload(Initiative.category).selectinload(Category.subcategories),
+    joinedload(Initiative.business_unit),
     joinedload(Initiative.budget_decided_by),
     selectinload(Initiative.team_members),
     selectinload(Initiative.spend_requests).joinedload(SpendRequest.created_by),
@@ -90,6 +92,17 @@ def _reload_initiative(db: Session, initiative_id: uuid.UUID, options: Sequence[
     return db.scalar(select(Initiative).options(*options).where(Initiative.id == initiative_id))
 
 
+def _validate_currency_and_business_unit(db: Session, data: dict, *, creating: bool = False) -> None:
+    if data.get("currency") is not None and data["currency"] not in SUPPORTED_CURRENCIES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unsupported currency '{data['currency']}'.")
+    if "business_unit_id" in data:
+        if data["business_unit_id"] is None and not creating:
+            # An edit that doesn't name a business unit leaves it as it was.
+            del data["business_unit_id"]
+        else:
+            data["business_unit_id"] = initiative_service.resolve_business_unit_id(db, data["business_unit_id"])
+
+
 def _visible_spend_requests(initiative: Initiative, user: User) -> list:
     return [sr for sr in initiative.spend_requests if is_spend_request_visible(sr, user)]
 
@@ -99,15 +112,13 @@ def _financial_summary(initiative: Initiative, spend_requests: list) -> Initiati
     # otherwise-INR request) — only reach for a live/cached FX rate when a
     # mix is actually present under this initiative.
     needs_conversion = any(sr.currency != initiative.currency for sr in spend_requests)
-    rate = None
-    if needs_conversion:
-        rate, _, _ = fx_service.get_usd_inr_rate()
+    rates = fx_service.current_rates(object_session(initiative)) if needs_conversion else None
 
     def conv(amount: Decimal | None, from_currency: str) -> Decimal | None:
         if amount is None:
             return None
         if needs_conversion and from_currency != initiative.currency:
-            return fx_service.convert(amount, from_currency, initiative.currency, rate)
+            return fx_service.convert(amount, from_currency, initiative.currency, rates)
         return amount
 
     total_requested = Decimal("0")
@@ -147,6 +158,7 @@ def create_initiative(
     user: User = Depends(get_current_user),
 ) -> Initiative:
     data = payload.model_dump()
+    _validate_currency_and_business_unit(db, data, creating=True)
     team_member_ids = data.pop("team_member_ids")
     initiative = Initiative(owner_id=user.id, status="draft", **data)
     initiative.team_members = team_members_service.resolve(db, team_member_ids)
@@ -306,6 +318,7 @@ def update_initiative(
     if initiative.owner_id != user.id and user.role != "admin":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the owner or an admin can edit this initiative.")
     data = payload.model_dump(exclude_unset=True)
+    _validate_currency_and_business_unit(db, data)
     team_member_ids = data.pop("team_member_ids", None)
     for field, value in data.items():
         setattr(initiative, field, value)

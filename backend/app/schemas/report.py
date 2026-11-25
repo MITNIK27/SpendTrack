@@ -15,6 +15,7 @@ class SpendRequestReportRow(BaseModel):
     initiative_id: uuid.UUID
     initiative_name: str
     category_name: str
+    business_unit_name: str
     requester_name: str
     vendor: str | None
     requested_amount: Decimal

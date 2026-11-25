@@ -1,3 +1,5 @@
+import type { Currency } from "@/lib/money"
+
 export type UserRole = "member" | "approver" | "admin"
 
 export interface UserRead {
@@ -31,6 +33,11 @@ export interface Category {
   subcategories: Subcategory[]
 }
 
+export interface BusinessUnit {
+  id: string
+  name: string
+}
+
 export type InitiativeStatus = "draft" | "active" | "closed" | "archived"
 export type InitiativeBudgetDecision = "approved" | "rejected"
 
@@ -45,10 +52,12 @@ export interface Initiative {
   // `category`) to match the Dashboard's "Spend by Category" table, which
   // attributes spend the same way.
   category_ids: string[]
+  /** Chosen once for the whole request — every spend request under it inherits it. */
+  business_unit: BusinessUnit
   owner: UserRead
   event_date: string | null
   location: string | null
-  currency: "INR" | "USD"
+  currency: Currency
   status: InitiativeStatus
   team_members: UserRead[]
 
@@ -122,7 +131,7 @@ export interface SpendRequest {
   requested_amount: string
   approved_amount: string | null
   actual_amount: string | null
-  currency: "INR" | "USD"
+  currency: Currency
   variance: string | null
   latest_decision_comment: string | null
   status: SpendRequestStatus
@@ -215,6 +224,7 @@ export interface SpendRequestReportRow {
   initiative_id: string
   initiative_name: string
   category_name: string
+  business_unit_name: string
   requester_name: string
   vendor: string | null
   requested_amount: string
@@ -236,6 +246,7 @@ export interface SpendSummaryFilters {
   month?: number
   category_id?: string
   subcategory_id?: string
+  business_unit_id?: string
   initiative_id?: string
   requester_id?: string
   status_filter?: string
@@ -265,7 +276,7 @@ export interface SearchRequestResult {
   spend_request_count: number
   category_name: string | null
   estimated_total_budget: string | null
-  currency: "INR" | "USD"
+  currency: Currency
   owner_name: string | null
 }
 
@@ -279,7 +290,7 @@ export interface LatestPendingRequest {
   name: string
   owner_name: string
   estimated_total_budget: string | null
-  currency: "INR" | "USD"
+  currency: Currency
 }
 
 export interface ActivityLogEntry {

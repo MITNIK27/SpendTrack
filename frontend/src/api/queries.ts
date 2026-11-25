@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/api/client"
 import { getToken } from "@/auth/tokenStore"
-import type { FxRate } from "@/lib/fx"
+import type { FxRates } from "@/lib/fx"
+import type { Currency } from "@/lib/money"
 import type {
   ActivityLogEntry,
+  BusinessUnit,
   Category,
   Initiative,
   InitiativeDetail,
@@ -29,6 +31,14 @@ export function useCurrentUser() {
 
 export function useCategories() {
   return useQuery<Category[]>({ queryKey: ["categories"], queryFn: () => api.get<Category[]>("/categories") })
+}
+
+export function useBusinessUnits() {
+  return useQuery<BusinessUnit[]>({
+    queryKey: ["business-units"],
+    queryFn: () => api.get<BusinessUnit[]>("/business-units"),
+    staleTime: Infinity,
+  })
 }
 
 export function useUsers() {
@@ -327,11 +337,13 @@ export function useGlobalSearch(q: string) {
 /** The backend only refreshes this once a day (see fx_service.py) — a long
  * staleTime means one fetch per session rather than one per keystroke/row. */
 export function useFxRate() {
-  return useQuery<FxRate>({
-    queryKey: ["fx", "usd-inr"],
+  return useQuery<FxRates>({
+    queryKey: ["fx", "rates"],
     queryFn: async () => {
-      const raw = await api.get<{ rate: string; as_of: string; is_stale: boolean }>("/fx/usd-inr")
-      return { rate: Number(raw.rate), asOf: raw.as_of, isStale: raw.is_stale }
+      const raw = await api.get<{ currency: Currency; rate_to_inr: string; is_stale: boolean }[]>("/fx/rates")
+      const rateToInr = { INR: 1 } as Record<Currency, number>
+      for (const r of raw) rateToInr[r.currency] = Number(r.rate_to_inr)
+      return { rateToInr, isStale: raw.some((r) => r.is_stale) }
     },
     staleTime: 24 * 60 * 60 * 1000,
   })

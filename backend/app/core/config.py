@@ -17,11 +17,15 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     jwt_expires_minutes: int = 60
 
-    # Frankfurter (ECB official daily reference rates) — free, keyless. Used only
-    # as the last-resort fallback if fx_service has never had a successful fetch
-    # since the process started (see app/services/fx_service.py).
+    # Frankfurter (ECB official daily reference rates) — free, keyless.
     fx_rate_api_url: str = "https://api.frankfurter.dev/v1/latest"
-    fx_fallback_usd_inr: Decimal = Decimal("83.0")
+    # INR per 1 unit — only used if the fx_rates table has never logged a
+    # rate for that currency at all (see app/services/fx_service.py).
+    fx_fallback_rates_to_inr: dict[str, Decimal] = {
+        "USD": Decimal("92.0"),
+        "AED": Decimal("25.0"),
+        "EUR": Decimal("101.0"),
+    }
 
     # Email notifications (app/services/email_service.py) — off by default so
     # local/dev environments without SMTP credentials never attempt a send.

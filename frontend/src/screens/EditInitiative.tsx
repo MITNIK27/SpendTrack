@@ -62,6 +62,7 @@ export default function EditInitiative() {
         initial={{
           name: initiative.name,
           type: initiative.type,
+          business_unit_id: initiative.business_unit.id,
           currency: initiative.currency,
           objective: initiative.objective,
           estimated_total_budget: initiative.estimated_total_budget,
@@ -97,7 +98,9 @@ export default function EditInitiative() {
                 <div key={sr.id} className="flex items-center justify-between gap-3 border border-border bg-muted/30 p-3">
                   <div>
                     <div className="text-sm font-medium">{sr.description ?? sr.category.name}</div>
-                    <div className="text-xs text-muted-foreground">{sr.category.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {sr.category.name}
+                    </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="tabular-nums text-sm">{formatMoney(sr.requested_amount, sr.currency)}</span>

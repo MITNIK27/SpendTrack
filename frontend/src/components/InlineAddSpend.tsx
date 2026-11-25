@@ -76,8 +76,8 @@ export function InlineAddSpend({ initiativeId, currency, onClose }: Props) {
           <TableHeader className="hidden md:table-header-group">
             <TableRow>
               <TableHead className="w-[40%]">What are you spending on?</TableHead>
-              <TableHead className="w-40">Amount</TableHead>
-              <TableHead className="w-[34%]">Remarks</TableHead>
+              <TableHead className="w-36">Amount</TableHead>
+              <TableHead>Remarks</TableHead>
               <TableHead className="w-20" />
             </TableRow>
           </TableHeader>
